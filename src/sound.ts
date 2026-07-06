@@ -24,6 +24,18 @@ export function hapticError() {
   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
 }
 
+/** picking up a bottle */
+export function hapticSelect() {
+  if (!useMetaStore.getState().hapticsEnabled) return;
+  Haptics.selectionAsync();
+}
+
+/** a pour landing — a soft tap per pour */
+export function hapticLight() {
+  if (!useMetaStore.getState().hapticsEnabled) return;
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+}
+
 export function hapticSuccess() {
   if (!useMetaStore.getState().hapticsEnabled) return;
   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

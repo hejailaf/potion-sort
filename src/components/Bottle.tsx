@@ -1,6 +1,8 @@
+import { Canvas, Group, Oval, Rect } from '@shopify/react-native-skia';
 import { useEffect, useRef } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
+  Easing,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
@@ -8,9 +10,12 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { isBottleComplete } from '@/engine/rules';
-import { Bottle as BottleData, BOTTLE_CAPACITY } from '@/engine/types';
+import { Bottle as BottleData, BOTTLE_CAPACITY, COLOR_HEX, COLOR_SYMBOL } from '@/engine/types';
+import { useMetaStore } from '@/state/metaStore';
+import { hapticSelect } from '@/sound';
 import { bottleLayouts } from './bottleLayout';
-import { Segment } from './Segment';
+import { segmentGeometry, shade, vialPaths } from './vial';
+import { VialInside, VialShine } from './VialGlass';
 
 interface BottleProps {
   bottle: BottleData;
@@ -30,7 +35,12 @@ export function Bottle({ bottle, width, selected, hidden, shakeToken, onTap }: B
   const shakeX = useSharedValue(0);
 
   useEffect(() => {
-    lift.value = withSpring(selected ? -height * 0.12 : 0, { damping: 14, stiffness: 220 });
+    // rigid glass: a clean lift with no overshoot or deformation
+    lift.value = withTiming(selected ? -height * 0.12 : 0, {
+      duration: 180,
+      easing: Easing.out(Easing.cubic),
+    });
+    if (selected) hapticSelect();
   }, [selected, height, lift]);
 
   useEffect(() => {
@@ -47,6 +57,11 @@ export function Bottle({ bottle, width, selected, hidden, shakeToken, onTap }: B
     transform: [{ translateY: lift.value }, { translateX: shakeX.value }],
   }));
 
+  const symbols = useMetaStore((s) => s.colorBlindSymbols);
+  const { interior } = vialPaths(width, height);
+  const { fillBottom, segH } = segmentGeometry(width, height, BOTTLE_CAPACITY);
+  const surfaceRy = width * 0.14;
+
   return (
     <Pressable
       ref={ref}
@@ -60,13 +75,49 @@ export function Bottle({ bottle, width, selected, hidden, shakeToken, onTap }: B
       }}
       style={hidden ? styles.hidden : undefined}
     >
-      <Animated.View style={animatedStyle}>
+      {/* pointerEvents=none: the Skia canvas consumes touches otherwise — the Pressable must get them */}
+      <Animated.View style={animatedStyle} pointerEvents="none">
         {isBottleComplete(bottle) && <Cork width={width} />}
-        <View style={[styles.glass, { width, height }]}>
-          {bottle.segments.map((color, i) => (
-            <Segment key={i} color={color} height={height / BOTTLE_CAPACITY} />
+        <Canvas style={{ width, height }}>
+          <VialInside w={width} h={height} />
+          <Group clip={interior}>
+            {bottle.segments.map((color, i) => (
+              <Rect
+                key={i}
+                x={0}
+                y={fillBottom - (i + 1) * segH}
+                width={width}
+                height={segH + 1}
+                color={COLOR_HEX[color]}
+              />
+            ))}
+            {bottle.segments.length > 0 && (
+              <Oval
+                x={width * 0.06}
+                y={fillBottom - bottle.segments.length * segH - surfaceRy}
+                width={width * 0.88}
+                height={surfaceRy * 2}
+                color={shade(COLOR_HEX[bottle.segments[bottle.segments.length - 1]], 0.35)}
+              />
+            )}
+          </Group>
+          <VialShine w={width} h={height} />
+        </Canvas>
+        {symbols &&
+          bottle.segments.map((color, i) => (
+            <Text
+              key={i}
+              style={[
+                styles.symbol,
+                {
+                  top: fillBottom - (i + 1) * segH + segH / 2 - 8,
+                  fontSize: Math.min(13, segH * 0.4),
+                },
+              ]}
+            >
+              {COLOR_SYMBOL[color]}
+            </Text>
           ))}
-        </View>
       </Animated.View>
     </Pressable>
   );
@@ -82,7 +133,7 @@ function Cork({ width }: { width: number }) {
     <Animated.View
       style={[
         styles.cork,
-        { width: width * 0.5, left: width * 0.25, height: width * 0.3, top: -width * 0.22 },
+        { width: width * 0.44, left: width * 0.28, height: width * 0.3, top: -width * 0.16 },
         style,
       ]}
     />
@@ -90,19 +141,16 @@ function Cork({ width }: { width: number }) {
 }
 
 const styles = StyleSheet.create({
-  glass: {
-    flexDirection: 'column-reverse', // segments[0] is the bottom of the bottle
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderColor: 'rgba(255,255,255,0.22)',
-    borderWidth: 1.5,
-    borderTopLeftRadius: 6,
-    borderTopRightRadius: 6,
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
-    overflow: 'hidden',
-  },
   hidden: {
     opacity: 0,
+  },
+  symbol: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    color: 'rgba(0,0,0,0.55)',
+    fontWeight: '900',
   },
   cork: {
     position: 'absolute',
