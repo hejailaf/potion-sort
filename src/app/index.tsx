@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CoinFly } from '@/components/effects/CoinFly';
 import { CoinCounter } from '@/components/hud/CoinCounter';
@@ -8,7 +8,10 @@ import { HomeTabBar } from '@/components/hud/HomeTabBar';
 import { LivesPill } from '@/components/hud/LivesPill';
 import { SettingsSheet } from '@/components/hud/SettingsSheet';
 import { StarryBackground } from '@/components/StarryBackground';
+import { GameButton } from '@/components/ui/GameButton';
+import { IconButton } from '@/components/ui/IconButton';
 import { todayKey, useMetaStore } from '@/state/metaStore';
+import { color, font, labelShadow } from '@/theme';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -21,31 +24,31 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <StarryBackground />
-      <SafeAreaView style={styles.content}>
+      <SafeAreaView style={styles.content} edges={['top', 'left', 'right']}>
         <View style={styles.topBar}>
           <View style={styles.topLeft}>
-            <CoinCounter />
+            <CoinCounter onAdd={() => router.push('/shop')} />
             <LivesPill />
           </View>
-          <Pressable onPress={() => setSettingsOpen(true)} style={styles.gear} hitSlop={8}>
-            <Text style={styles.gearText}>⚙</Text>
-          </Pressable>
+          <IconButton glyph="⚙" onPress={() => setSettingsOpen(true)} />
         </View>
         <View style={styles.center}>
           <Text style={styles.title}>Potion Sort</Text>
-          <Pressable style={styles.playButton} onPress={() => router.push('/game')}>
-            <Text style={styles.playText}>Level {currentLevel}</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.dailyButton, dailyDone && styles.dailyDone]}
+          <GameButton
+            label={`Level ${currentLevel}`}
+            variant="violet"
+            big
+            onPress={() => router.push('/game')}
+          />
+          <GameButton
+            label={dailyDone ? '✓ Daily Complete' : '✦ Daily Challenge'}
+            variant="green"
             disabled={dailyDone}
             onPress={() => router.push('/game?daily=1')}
-          >
-            <Text style={styles.dailyText}>{dailyDone ? '✓ Daily Complete' : '✦ Daily Challenge'}</Text>
-          </Pressable>
+          />
         </View>
-        <HomeTabBar />
       </SafeAreaView>
+      <HomeTabBar />
       {pendingCoinReward !== null && <CoinFly onDone={clearCoinCelebration} />}
       <SettingsSheet visible={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </View>
@@ -69,55 +72,19 @@ const styles = StyleSheet.create({
   topLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-  },
-  gear: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 999,
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gearText: {
-    color: '#E8E6FF',
-    fontSize: 18,
-    fontWeight: '700',
+    gap: 12,
   },
   center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 36,
+    gap: 22,
   },
   title: {
-    color: '#E8E6FF',
-    fontSize: 36,
-    fontWeight: 'bold',
-  },
-  playButton: {
-    backgroundColor: '#8A4AE6',
-    borderRadius: 999,
-    paddingHorizontal: 48,
-    paddingVertical: 16,
-  },
-  playText: {
-    color: '#FFFFFF',
-    fontSize: 22,
-    fontWeight: '700',
-  },
-  dailyButton: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 999,
-    paddingHorizontal: 32,
-    paddingVertical: 12,
-  },
-  dailyDone: {
-    opacity: 0.5,
-  },
-  dailyText: {
-    color: '#FFE9A8',
-    fontSize: 16,
-    fontWeight: '700',
+    color: color.goldText,
+    fontFamily: font.bold,
+    fontSize: 38,
+    marginBottom: 10,
+    ...labelShadow,
   },
 });

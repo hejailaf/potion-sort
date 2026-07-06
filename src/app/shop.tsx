@@ -7,7 +7,9 @@ import { track } from '@/analytics';
 import { CoinFly } from '@/components/effects/CoinFly';
 import { CoinCounter } from '@/components/hud/CoinCounter';
 import { StarryBackground } from '@/components/StarryBackground';
+import { IconButton } from '@/components/ui/IconButton';
 import { useMetaStore } from '@/state/metaStore';
+import { color, font, radius, shadow } from '@/theme';
 
 const RC_APPLE_KEY = 'appl_GrAwncMkfMBVnHPdKduNzwMNnyz';
 
@@ -81,9 +83,7 @@ export default function ShopScreen() {
       <SafeAreaView style={styles.content}>
         <View style={styles.topBar}>
           <CoinCounter />
-          <Pressable onPress={() => router.back()} style={styles.close} hitSlop={8}>
-            <Text style={styles.closeText}>✕</Text>
-          </Pressable>
+          <IconButton glyph="✕" onPress={() => router.back()} />
         </View>
         <Text style={styles.title}>Coin Shop</Text>
         {packages === null && <Text style={styles.note}>Loading…</Text>}
@@ -120,28 +120,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
   },
-  close: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 999,
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  closeText: {
-    color: '#E8E6FF',
-    fontSize: 16,
-    fontWeight: '700',
-  },
   title: {
-    color: '#E8E6FF',
-    fontSize: 28,
-    fontWeight: 'bold',
+    color: color.goldText,
+    fontFamily: font.bold,
+    fontSize: 30,
     textAlign: 'center',
     marginVertical: 20,
   },
   note: {
-    color: 'rgba(232,230,255,0.7)',
+    color: color.textDim,
+    fontFamily: font.medium,
     fontSize: 15,
     textAlign: 'center',
     marginTop: 24,
@@ -154,28 +142,38 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: 'rgba(255,255,255,0.10)',
-    borderRadius: 18,
+    backgroundColor: color.panelLight,
+    borderRadius: radius.card,
+    borderWidth: 1.5,
+    borderColor: color.panelBorder,
     paddingHorizontal: 20,
     paddingVertical: 16,
+    ...shadow.chip,
   },
   coin: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#F2D43D',
-    borderWidth: 2,
-    borderColor: '#C9A227',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: color.gold,
+    borderWidth: 2.5,
+    borderColor: color.goldRimBottom,
   },
   packCoins: {
-    color: '#E8E6FF',
+    color: color.text,
+    fontFamily: font.semibold,
     fontSize: 18,
-    fontWeight: '700',
     flex: 1,
   },
   packPrice: {
-    color: '#FFE9A8',
-    fontSize: 16,
-    fontWeight: '800',
+    color: color.panelDeep,
+    fontFamily: font.bold,
+    fontSize: 15,
+    backgroundColor: color.gold,
+    borderRadius: radius.pill,
+    borderWidth: 1.5,
+    borderColor: color.goldRimBottom,
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    overflow: 'hidden',
   },
 });

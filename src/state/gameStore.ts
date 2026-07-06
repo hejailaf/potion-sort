@@ -54,6 +54,8 @@ interface GameState {
   tapBottle: (id: string) => void;
   finishPour: (pourId: number) => void;
   restart: () => void;
+  /** give up the current board: costs a life (no-op at 0 — never traps the player) and re-deals it */
+  quitLevel: () => void;
   undoMove: () => void;
   shuffleBoard: () => void;
   addExtraBottle: () => void;
@@ -179,6 +181,13 @@ export const useGameStore = create<GameState>()(
     if (!level) return;
     if (!useMetaStore.getState().spendLife()) return;
     get().loadLevel(level.id, level.seed, mode);
+  },
+
+  quitLevel: () => {
+    const { level, mode } = get();
+    if (!level) return;
+    useMetaStore.getState().spendLife(); // false at 0 lives — quitting is still allowed
+    get().loadLevel(level.id, level.seed, mode); // abandons the board (quit ≠ free resume)
   },
 
   undoMove: () => {

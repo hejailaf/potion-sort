@@ -1,8 +1,18 @@
+import { useRef, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { showRewardedAd } from '@/ads';
 import { track } from '@/analytics';
+import { GameButton } from '@/components/ui/GameButton';
+import { GameModal } from '@/components/ui/GameModal';
 import { useGameStore } from '@/state/gameStore';
 import { BOOSTER_COST, BoosterKind, useMetaStore } from '@/state/metaStore';
+import { color, font, radius, shadow } from '@/theme';
+
+const BOOSTER_META: Record<BoosterKind, { glyph: string; label: string }> = {
+  undo: { glyph: '↩', label: 'Undo' },
+  shuffle: { glyph: '⇄', label: 'Shuffle' },
+  extraBottle: { glyph: '＋', label: 'Bottle' },
+};
 
 async function watchAdForBooster(kind: BoosterKind, action: () => void) {
   if (await showRewardedAd('booster')) {
@@ -13,97 +23,108 @@ async function watchAdForBooster(kind: BoosterKind, action: () => void) {
   }
 }
 
-/** At 0 charges the button offers a coin purchase or a rewarded ad, then runs the action. */
-function buyThenRun(kind: BoosterKind, label: string, action: () => void) {
-  const { coins, buyBooster } = useMetaStore.getState();
-  const adButton = { text: 'Watch ad (free)', onPress: () => watchAdForBooster(kind, action) };
-  if (coins < BOOSTER_COST) {
-    Alert.alert(
-      'Not enough coins',
-      `A ${label} charge costs ${BOOSTER_COST} coins — you have ${coins}.`,
-      [{ text: 'Cancel', style: 'cancel' }, adButton],
-    );
-    return;
-  }
-  Alert.alert(`Buy ${label}`, `Spend ${BOOSTER_COST} coins for 1 ${label}?`, [
-    { text: 'Cancel', style: 'cancel' },
-    adButton,
-    {
-      text: `Buy (${BOOSTER_COST})`,
-      onPress: () => {
-        if (buyBooster(kind)) {
-          track('booster_bought', { kind });
-          action();
-        }
-      },
-    },
-  ]);
-}
-
 export function BoosterBar() {
   const boosters = useMetaStore((s) => s.boosters);
+  const coins = useMetaStore((s) => s.coins);
   const undoMove = useGameStore((s) => s.undoMove);
   const shuffleBoard = useGameStore((s) => s.shuffleBoard);
   const addExtraBottle = useGameStore((s) => s.addExtraBottle);
   const historyLength = useGameStore((s) => s.history.length);
   const extraBottleUsed = useGameStore((s) => s.extraBottleUsed);
   const won = useGameStore((s) => s.status === 'won');
+  const [buying, setBuying] = useState<null | { kind: BoosterKind; action: () => void }>(null);
+  const acting = useRef(false);
 
-  const press = (kind: BoosterKind, label: string, action: () => void) =>
-    boosters[kind] === 0
-      ? () => buyThenRun(kind, label, action)
-      : () => {
-          track('booster_used', { kind });
-          action();
-        };
+  const press = (kind: BoosterKind, action: () => void) => () => {
+    if (boosters[kind] === 0) {
+      acting.current = false;
+      setBuying({ kind, action });
+    } else {
+      track('booster_used', { kind });
+      action();
+    }
+  };
+
+  const buyWithCoins = () => {
+    if (!buying || acting.current) return;
+    acting.current = true;
+    const { kind, action } = buying;
+    setBuying(null);
+    if (useMetaStore.getState().buyBooster(kind)) {
+      track('booster_bought', { kind });
+      action();
+    }
+  };
+
+  const buyWithAd = () => {
+    if (!buying) return;
+    const { kind, action } = buying;
+    setBuying(null);
+    // let the modal dismiss before the fullscreen ad presents
+    setTimeout(() => watchAdForBooster(kind, action), 400);
+  };
 
   return (
     <View style={styles.bar}>
       <BoosterButton
-        glyph="↩"
-        label="Undo"
+        kind="undo"
         count={boosters.undo}
         disabled={won || historyLength === 0}
-        onPress={press('undo', 'Undo', undoMove)}
+        onPress={press('undo', undoMove)}
       />
+      <BoosterButton kind="shuffle" count={boosters.shuffle} disabled={won} onPress={press('shuffle', shuffleBoard)} />
       <BoosterButton
-        glyph="⇄"
-        label="Shuffle"
-        count={boosters.shuffle}
-        disabled={won}
-        onPress={press('shuffle', 'Shuffle', shuffleBoard)}
-      />
-      <BoosterButton
-        glyph="＋"
-        label="Bottle"
+        kind="extraBottle"
         count={boosters.extraBottle}
         disabled={won || extraBottleUsed}
-        onPress={press('extraBottle', 'Bottle', addExtraBottle)}
+        onPress={press('extraBottle', addExtraBottle)}
       />
+
+      <GameModal
+        visible={buying !== null}
+        title={buying ? `Get ${BOOSTER_META[buying.kind].label}` : ''}
+        onClose={() => setBuying(null)}
+        icon={buying ? BOOSTER_META[buying.kind].glyph : undefined}
+        message={
+          coins >= BOOSTER_COST
+            ? `1 ${buying ? BOOSTER_META[buying.kind].label : ''} charge — ${BOOSTER_COST} coins, or watch an ad.`
+            : `You have ${coins} coins (a charge costs ${BOOSTER_COST}) — watch an ad instead!`
+        }
+      >
+        <GameButton label="Watch ad (free)" variant="green" onPress={buyWithAd} />
+        {coins >= BOOSTER_COST && (
+          <GameButton label={`Buy (${BOOSTER_COST} coins)`} variant="violet" onPress={buyWithCoins} />
+        )}
+      </GameModal>
     </View>
   );
 }
 
 interface BoosterButtonProps {
-  glyph: string;
-  label: string;
+  kind: BoosterKind;
   count: number;
   disabled: boolean;
   onPress: () => void;
 }
 
-function BoosterButton({ glyph, label, count, disabled, onPress }: BoosterButtonProps) {
+function BoosterButton({ kind, count, disabled, onPress }: BoosterButtonProps) {
+  const meta = BOOSTER_META[kind];
   return (
     <Pressable
       onPress={onPress}
       disabled={disabled}
-      style={[styles.button, disabled && styles.buttonDisabled]}
+      style={({ pressed }) => [
+        styles.tile,
+        shadow.chip,
+        pressed && styles.tilePressed,
+        disabled && styles.tileDisabled,
+      ]}
     >
       <View style={styles.badge}>
         <Text style={styles.badgeText}>{count}</Text>
       </View>
-      <Text style={styles.glyph}>{glyph}</Text>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={styles.glyph}>{meta.glyph}</Text>
+      <Text style={styles.label}>{meta.label}</Text>
     </Pressable>
   );
 }
@@ -115,23 +136,32 @@ const styles = StyleSheet.create({
     gap: 20,
     paddingTop: 16,
   },
-  button: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 16,
-    width: 72,
-    paddingVertical: 10,
+  tile: {
+    width: 74,
+    height: 74,
+    borderRadius: radius.chip,
+    backgroundColor: color.panelLight,
+    borderWidth: 1.5,
+    borderColor: color.panelBorder,
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 2,
   },
-  buttonDisabled: {
+  tilePressed: {
+    backgroundColor: color.panel,
+    transform: [{ scale: 0.95 }],
+  },
+  tileDisabled: {
     opacity: 0.35,
   },
   badge: {
     position: 'absolute',
     top: -8,
     right: -6,
-    backgroundColor: '#8A4AE6',
-    borderRadius: 999,
+    backgroundColor: color.gold,
+    borderRadius: radius.small,
+    borderWidth: 1.5,
+    borderColor: color.goldRimBottom,
     minWidth: 22,
     height: 22,
     alignItems: 'center',
@@ -140,18 +170,18 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   badgeText: {
-    color: '#FFFFFF',
+    color: color.panelDeep,
+    fontFamily: font.semibold,
     fontSize: 12,
-    fontWeight: '800',
   },
   glyph: {
-    color: '#E8E6FF',
+    color: color.text,
     fontSize: 24,
     fontWeight: '700',
   },
   label: {
-    color: 'rgba(232,230,255,0.7)',
+    color: color.textDim,
+    fontFamily: font.semibold,
     fontSize: 12,
-    fontWeight: '600',
   },
 });

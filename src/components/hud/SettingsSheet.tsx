@@ -1,5 +1,8 @@
-import { Modal, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { StyleSheet, Switch, Text, View } from 'react-native';
+import { GameButton } from '@/components/ui/GameButton';
+import { GameModal } from '@/components/ui/GameModal';
 import { useMetaStore } from '@/state/metaStore';
+import { color, font } from '@/theme';
 
 interface SettingsSheetProps {
   visible: boolean;
@@ -15,50 +18,29 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
   const setColorBlindSymbols = useMetaStore((s) => s.setColorBlindSymbols);
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.card}>
-          <Text style={styles.title}>Settings</Text>
-          <View style={styles.row}>
-            <Text style={styles.label}>Sound</Text>
-            <Switch value={soundEnabled} onValueChange={setSoundEnabled} />
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.label}>Haptics</Text>
-            <Switch value={hapticsEnabled} onValueChange={setHapticsEnabled} />
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.label}>Color-blind symbols</Text>
-            <Switch value={colorBlindSymbols} onValueChange={setColorBlindSymbols} />
-          </View>
-          <Pressable onPress={onClose} style={styles.done}>
-            <Text style={styles.doneText}>Done</Text>
-          </Pressable>
-        </Pressable>
-      </Pressable>
-    </Modal>
+    <GameModal visible={visible} title="Settings" onClose={onClose}>
+      <View style={styles.rows}>
+        <View style={styles.row}>
+          <Text style={styles.label}>Sound</Text>
+          <Switch value={soundEnabled} onValueChange={setSoundEnabled} />
+        </View>
+        <View style={styles.row}>
+          <Text style={styles.label}>Haptics</Text>
+          <Switch value={hapticsEnabled} onValueChange={setHapticsEnabled} />
+        </View>
+        <View style={styles.row}>
+          <Text style={styles.label}>Color-blind symbols</Text>
+          <Switch value={colorBlindSymbols} onValueChange={setColorBlindSymbols} />
+        </View>
+      </View>
+      <GameButton label="Done" variant="green" onPress={onClose} />
+    </GameModal>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  card: {
-    backgroundColor: '#1B1E4B',
-    borderRadius: 20,
-    padding: 24,
-    width: 280,
-    gap: 18,
-  },
-  title: {
-    color: '#E8E6FF',
-    fontSize: 20,
-    fontWeight: '700',
-    textAlign: 'center',
+  rows: {
+    gap: 14,
   },
   row: {
     flexDirection: 'row',
@@ -66,19 +48,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   label: {
-    color: '#E8E6FF',
+    color: color.text,
+    fontFamily: font.medium,
     fontSize: 16,
-  },
-  done: {
-    backgroundColor: '#8A4AE6',
-    borderRadius: 999,
-    paddingVertical: 10,
-    alignItems: 'center',
-    marginTop: 6,
-  },
-  doneText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
   },
 });

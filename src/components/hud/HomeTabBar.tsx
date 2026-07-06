@@ -1,46 +1,62 @@
 import { useRouter } from 'expo-router';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { presentLeaderboard } from '@/gamecenter';
+import { todayKey, useMetaStore } from '@/state/metaStore';
+import { color, font, shadow } from '@/theme';
 
-// ponytail: Shop is a modal screen and Ranks is a native GC sheet — a real Tabs
-// group waits until a second in-tab destination exists (Teams)
-const TABS = ['home', 'shop', 'ranks', 'teams'] as const;
-type Tab = (typeof TABS)[number];
-
-const TAB_META: Record<Tab, { glyph: string; label: string; locked: boolean }> = {
-  home: { glyph: '⌂', label: 'Home', locked: false },
-  shop: { glyph: '🛒', label: 'Shop', locked: false },
-  ranks: { glyph: '🏆', label: 'Ranks', locked: false },
-  teams: { glyph: '👥', label: 'Teams', locked: true },
-};
+// ponytail: a visual bar, not a router Tabs group — Home is the only in-tab screen;
+// Shop is a modal, Ranks is the native GC sheet, Daily routes into the game.
+const SIDE_TABS_LEFT = [
+  { key: 'shop', glyph: '🛒', label: 'Shop' },
+  { key: 'ranks', glyph: '🏆', label: 'Ranks' },
+] as const;
+const SIDE_TABS_RIGHT = [
+  { key: 'daily', glyph: '✦', label: 'Daily' },
+  { key: 'teams', glyph: '👥', label: 'Teams' },
+] as const;
 
 export function HomeTabBar() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const dailyDone = useMetaStore((s) => s.lastDailyCompleted === todayKey());
 
-  const onPress = (tab: Tab) => {
-    if (tab === 'shop') router.push('/shop');
-    else if (tab === 'ranks') {
+  const onPress = (key: string) => {
+    if (key === 'shop') router.push('/shop');
+    else if (key === 'ranks') {
       if (!presentLeaderboard()) {
         Alert.alert('Game Center unavailable', 'Sign in to Game Center in Settings to see rankings.');
       }
-    } else if (tab === 'teams') {
+    } else if (key === 'daily') {
+      if (dailyDone) Alert.alert('Daily complete!', 'Come back tomorrow for a new potion puzzle.');
+      else router.push('/game?daily=1');
+    } else if (key === 'teams') {
       Alert.alert('Coming soon', 'Teams unlocks in a future update.');
     }
   };
 
+  const renderTab = (tab: { key: string; glyph: string; label: string }) => {
+    const locked = tab.key === 'teams';
+    const dimmed = locked || (tab.key === 'daily' && dailyDone);
+    return (
+      <Pressable key={tab.key} style={styles.tab} onPress={() => onPress(tab.key)} hitSlop={6}>
+        <Text style={[styles.glyph, dimmed && styles.lockedText]}>{tab.key === 'daily' && dailyDone ? '✓' : tab.glyph}</Text>
+        <Text style={[styles.label, dimmed && styles.lockedText]}>{locked ? `🔒 ${tab.label}` : tab.label}</Text>
+      </Pressable>
+    );
+  };
+
   return (
-    <View style={styles.bar}>
-      {TABS.map((tab) => {
-        const meta = TAB_META[tab];
-        return (
-          <Pressable key={tab} style={styles.tab} disabled={tab === 'home'} onPress={() => onPress(tab)}>
-            <Text style={[styles.glyph, meta.locked && styles.lockedText]}>{meta.glyph}</Text>
-            <Text style={[styles.label, meta.locked && styles.lockedText]}>
-              {meta.locked ? `🔒 ${meta.label}` : meta.label}
-            </Text>
-          </Pressable>
-        );
-      })}
+    <View style={[styles.bar, { paddingBottom: insets.bottom + 6 }]}>
+      {SIDE_TABS_LEFT.map(renderTab)}
+      {/* elevated active Home slot */}
+      <View style={styles.tab}>
+        <View style={[styles.homeBadge, shadow.button]}>
+          <Text style={styles.homeGlyph}>⌂</Text>
+        </View>
+        <Text style={styles.homeLabel}>Home</Text>
+      </View>
+      {SIDE_TABS_RIGHT.map(renderTab)}
     </View>
   );
 }
@@ -48,27 +64,50 @@ export function HomeTabBar() {
 const styles = StyleSheet.create({
   bar: {
     flexDirection: 'row',
+    alignItems: 'flex-end',
     justifyContent: 'space-around',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 20,
-    paddingVertical: 10,
-    marginBottom: 4,
+    backgroundColor: color.panelDeep,
+    borderTopWidth: 1.5,
+    borderTopColor: color.panelBorder,
+    paddingTop: 8,
+    paddingHorizontal: 8,
   },
   tab: {
     alignItems: 'center',
     gap: 2,
-    minWidth: 64,
+    minWidth: 60,
   },
   glyph: {
-    color: '#E8E6FF',
-    fontSize: 20,
+    color: color.text,
+    fontSize: 21,
   },
   label: {
-    color: '#E8E6FF',
+    color: color.text,
+    fontFamily: font.semibold,
     fontSize: 11,
-    fontWeight: '700',
   },
   lockedText: {
-    color: 'rgba(232,230,255,0.4)',
+    color: color.textLocked,
+  },
+  homeBadge: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    marginTop: -26,
+    backgroundColor: color.gold,
+    borderWidth: 3,
+    borderColor: color.goldRimBottom,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  homeGlyph: {
+    color: color.panelDeep,
+    fontSize: 26,
+    fontWeight: '800',
+  },
+  homeLabel: {
+    color: color.goldText,
+    fontFamily: font.bold,
+    fontSize: 11,
   },
 });

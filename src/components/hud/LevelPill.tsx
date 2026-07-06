@@ -1,8 +1,13 @@
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 import { showRewardedAd } from '@/ads';
 import { track } from '@/analytics';
+import { GameButton } from '@/components/ui/GameButton';
+import { GameModal } from '@/components/ui/GameModal';
+import { IconButton } from '@/components/ui/IconButton';
 import { useGameStore } from '@/state/gameStore';
 import { LIFE_REGEN_MS, LIVES_REFILL_COST, useMetaStore } from '@/state/metaStore';
+import { color, font, radius, shadow } from '@/theme';
 
 interface LevelPillProps {
   onOpenSettings: () => void;
@@ -16,62 +21,77 @@ async function watchAdForLife(restart: () => void) {
   }
 }
 
-function confirmRestart(restart: () => void) {
-  const meta = useMetaStore.getState();
-  meta.syncLives();
-  const { lives, lastLifeAt, coins } = useMetaStore.getState();
-  if (lives <= 0) {
-    track('out_of_lives', { coins });
-    const mins = lastLifeAt !== null ? Math.ceil((lastLifeAt + LIFE_REGEN_MS - Date.now()) / 60_000) : 0;
-    const body =
-      coins >= LIVES_REFILL_COST
-        ? `Next life in ${mins}m — or refill 5 lives for ${LIVES_REFILL_COST} coins.`
-        : `Next life in ${mins}m. (Refill costs ${LIVES_REFILL_COST} coins — you have ${coins}.)`;
-    Alert.alert('Out of lives', body, [
-      { text: 'Wait', style: 'cancel' },
-      { text: 'Watch ad (+1 ❤️)', onPress: () => watchAdForLife(restart) },
-      ...(coins >= LIVES_REFILL_COST
-        ? [
-            {
-              text: `Refill (${LIVES_REFILL_COST})`,
-              onPress: () => {
-                if (useMetaStore.getState().refillLives()) restart();
-              },
-            },
-          ]
-        : []),
-    ]);
-    return;
-  }
-  Alert.alert('Restart level?', 'Restarting costs 1 life.', [
-    { text: 'Cancel', style: 'cancel' },
-    {
-      text: 'Restart',
-      style: 'destructive',
-      onPress: () => {
-        track('level_restart', { level: useGameStore.getState().level?.id ?? 0 });
-        restart();
-      },
-    },
-  ]);
-}
-
 export function LevelPill({ onOpenSettings }: LevelPillProps) {
   const levelId = useGameStore((s) => s.level?.id);
   const daily = useGameStore((s) => s.mode === 'daily');
   const restart = useGameStore((s) => s.restart);
+  const [modal, setModal] = useState<null | 'restart' | 'noLives'>(null);
+  const acting = useRef(false);
+
+  const openRestart = () => {
+    const meta = useMetaStore.getState();
+    meta.syncLives();
+    acting.current = false;
+    if (useMetaStore.getState().lives <= 0) {
+      track('out_of_lives', { coins: meta.coins });
+      setModal('noLives');
+    } else {
+      setModal('restart');
+    }
+  };
+
+  const confirmRestart = () => {
+    if (acting.current) return;
+    acting.current = true;
+    track('level_restart', { level: useGameStore.getState().level?.id ?? 0 });
+    setModal(null);
+    restart();
+  };
+
+  const adForLife = () => {
+    setModal(null);
+    // let the modal dismiss before the fullscreen ad presents its own controller
+    setTimeout(() => watchAdForLife(restart), 400);
+  };
+
+  const refill = () => {
+    setModal(null);
+    if (useMetaStore.getState().refillLives()) restart();
+  };
+
+  const { lastLifeAt, coins } = useMetaStore.getState();
+  const mins = lastLifeAt !== null ? Math.max(1, Math.ceil((lastLifeAt + LIFE_REGEN_MS - Date.now()) / 60_000)) : 0;
 
   return (
     <View style={styles.bar}>
-      <View style={styles.pill}>
+      <View style={[styles.pill, shadow.chip]}>
         <Text style={styles.pillText}>{daily ? 'Daily' : `Level ${levelId ?? '–'}`}</Text>
       </View>
-      <Pressable onPress={() => confirmRestart(restart)} style={styles.round} hitSlop={8}>
-        <Text style={styles.roundText}>↻</Text>
-      </Pressable>
-      <Pressable onPress={onOpenSettings} style={styles.round} hitSlop={8}>
-        <Text style={styles.roundText}>⚙</Text>
-      </Pressable>
+      <IconButton glyph="↻" onPress={openRestart} />
+      <IconButton glyph="⚙" onPress={onOpenSettings} />
+
+      <GameModal
+        visible={modal === 'restart'}
+        title="Restart Level?"
+        onClose={() => setModal(null)}
+        icon="💔"
+        message="Restarting costs 1 life!"
+      >
+        <GameButton label="Restart" variant="red" onPress={confirmRestart} />
+      </GameModal>
+
+      <GameModal
+        visible={modal === 'noLives'}
+        title="Out of Lives"
+        onClose={() => setModal(null)}
+        icon="💔"
+        message={`Next life in ${mins}m — or get one now:`}
+      >
+        <GameButton label="Watch ad (+1 ❤️)" variant="green" onPress={adForLife} />
+        {coins >= LIVES_REFILL_COST && (
+          <GameButton label={`Refill 5 (${LIVES_REFILL_COST} coins)`} variant="violet" onPress={refill} />
+        )}
+      </GameModal>
     </View>
   );
 }
@@ -79,33 +99,21 @@ export function LevelPill({ onOpenSettings }: LevelPillProps) {
 const styles = StyleSheet.create({
   bar: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 12,
+    gap: 8,
   },
   pill: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 999,
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-  },
-  pillText: {
-    color: '#E8E6FF',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  round: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 999,
-    width: 36,
-    height: 36,
-    alignItems: 'center',
+    backgroundColor: color.panelLight,
+    borderRadius: radius.pill,
+    borderWidth: 1.5,
+    borderColor: color.panelBorder,
+    paddingHorizontal: 16,
+    height: 38,
     justifyContent: 'center',
   },
-  roundText: {
-    color: '#E8E6FF',
-    fontSize: 18,
-    fontWeight: '700',
+  pillText: {
+    color: color.text,
+    fontFamily: font.semibold,
+    fontSize: 15,
   },
 });

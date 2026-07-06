@@ -1,7 +1,7 @@
 import { createBottles } from '../../engine/generator';
 import { LevelDef } from '../../engine/types';
 import { useGameStore } from '../gameStore';
-import { useMetaStore } from '../metaStore';
+import { MAX_LIVES, useMetaStore } from '../metaStore';
 
 const initialState = useGameStore.getState();
 const initialMeta = useMetaStore.getState();
@@ -353,6 +353,33 @@ describe('gameStore', () => {
     // a persisted daily board never hijacks normal play
     useGameStore.getState().resumeOrLoad(useGameStore.getState().level!.id);
     expect(useGameStore.getState().mode).toBe('normal');
+  });
+
+  it('quitLevel costs one life, re-deals the board, and clears in-flight pours', () => {
+    useGameStore.getState().loadLevel(1, 7);
+    const fresh = useGameStore.getState().bottles;
+    const src = fresh.find((b) => b.segments.length > 0)!.id;
+    tap(src);
+    tap('b3'); // pour still animating when the player quits
+    useGameStore.getState().quitLevel();
+    const s = useGameStore.getState();
+    expect(useMetaStore.getState().lives).toBe(MAX_LIVES - 1);
+    expect(s.bottles).toEqual(fresh);
+    expect(s.history).toEqual([]);
+    expect(s.activePours).toEqual([]);
+  });
+
+  it('quitLevel at 0 lives still quits, never goes negative, and keeps daily mode', () => {
+    useMetaStore.setState({ lives: 0, lastLifeAt: Date.now() });
+    useGameStore.getState().loadDaily();
+    const dealt = useGameStore.getState().bottles;
+    const src = dealt.find((b) => b.segments.length > 0)!.id;
+    const empty = dealt.find((b) => b.segments.length === 0)!.id;
+    pour(src, empty);
+    useGameStore.getState().quitLevel();
+    expect(useMetaStore.getState().lives).toBe(0);
+    expect(useGameStore.getState().mode).toBe('daily');
+    expect(useGameStore.getState().history).toEqual([]);
   });
 
   it('reaches won status after a full hand-played win path and logs it', () => {
