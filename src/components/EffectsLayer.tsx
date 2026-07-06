@@ -10,7 +10,6 @@ export function EffectsLayer() {
   const invalidTapToken = useGameStore((s) => s.invalidTapToken);
   const completionToken = useGameStore((s) => s.completionToken);
   const completedBottleId = useGameStore((s) => s.completedBottleId);
-  const pouring = useGameStore((s) => s.pouring);
   const status = useGameStore((s) => s.status);
   const [burst, setBurst] = useState<{ token: number; x: number; y: number } | null>(null);
   const firedToken = useRef(0);
@@ -21,9 +20,10 @@ export function EffectsLayer() {
     hapticError();
   }, [invalidTapToken]);
 
-  // completion effects fire once, when the pour animation for the completing move ends
+  // completion effects fire once; the token bumps when the corking pour's animation lands
+  // ponytail: two corks landing in the same React batch render one sparkle burst
   useEffect(() => {
-    if (pouring !== null || completionToken === 0 || completionToken === firedToken.current) return;
+    if (completionToken === 0 || completionToken === firedToken.current) return;
     firedToken.current = completionToken;
     playSfx('complete');
     hapticSuccess();
@@ -32,7 +32,7 @@ export function EffectsLayer() {
     setBurst({ token: completionToken, x: layout.x + layout.w / 2, y: layout.y });
     const clear = setTimeout(() => setBurst(null), 800);
     return () => clearTimeout(clear);
-  }, [pouring, completionToken, completedBottleId]);
+  }, [completionToken, completedBottleId]);
 
   useEffect(() => {
     if (status === 'won') playSfx('win');

@@ -1,5 +1,17 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { boosterDropForLevel, useMetaStore, WIN_REWARD_COINS } from '../metaStore';
+import {
+  BOOSTER_COST,
+  boosterDropForLevel,
+  DAILY_REWARD_COINS,
+  dailyBoosterKind,
+  LIFE_REGEN_MS,
+  LIVES_REFILL_COST,
+  MAX_LIVES,
+  regenLives,
+  todayKey,
+  useMetaStore,
+  WIN_REWARD_COINS,
+} from '../metaStore';
 
 const initialState = useMetaStore.getState();
 
@@ -59,6 +71,64 @@ describe('metaStore', () => {
     expect(useMetaStore.getState().boosters).toEqual({ undo: 3, shuffle: 3, extraBottle: 3 });
   });
 
+  it('completeDaily rewards coins and a booster at most once per day', () => {
+    useMetaStore.getState().completeDaily();
+    const s = useMetaStore.getState();
+    expect(s.coins).toBe(DAILY_REWARD_COINS);
+    expect(s.lastDailyCompleted).toBe(todayKey());
+    expect(s.boosters[dailyBoosterKind()]).toBe(4);
+    useMetaStore.getState().completeDaily(); // same day: no-op
+    expect(useMetaStore.getState().coins).toBe(DAILY_REWARD_COINS);
+    expect(useMetaStore.getState().boosters[dailyBoosterKind()]).toBe(4);
+  });
+
+  it('buyBooster trades coins for a charge and refuses when short', () => {
+    useMetaStore.setState({ coins: BOOSTER_COST - 1 });
+    expect(useMetaStore.getState().buyBooster('undo')).toBe(false);
+    expect(useMetaStore.getState().boosters.undo).toBe(3);
+    useMetaStore.setState({ coins: BOOSTER_COST });
+    expect(useMetaStore.getState().buyBooster('undo')).toBe(true);
+    expect(useMetaStore.getState().boosters.undo).toBe(4);
+    expect(useMetaStore.getState().coins).toBe(0);
+  });
+
+  it('regenLives grants one life per elapsed interval and clamps at max', () => {
+    const t0 = 1_000_000;
+    // below one interval: nothing changes
+    expect(regenLives(2, t0, t0 + LIFE_REGEN_MS - 1)).toEqual({ lives: 2, lastLifeAt: t0 });
+    // two intervals: +2 lives, anchor advances by exactly what was consumed
+    expect(regenLives(2, t0, t0 + 2 * LIFE_REGEN_MS + 5)).toEqual({
+      lives: 4,
+      lastLifeAt: t0 + 2 * LIFE_REGEN_MS,
+    });
+    // clamps at max and clears the anchor
+    expect(regenLives(4, t0, t0 + 10 * LIFE_REGEN_MS)).toEqual({ lives: MAX_LIVES, lastLifeAt: null });
+    // already at max: anchor stays cleared
+    expect(regenLives(MAX_LIVES, null, t0)).toEqual({ lives: MAX_LIVES, lastLifeAt: null });
+  });
+
+  it('spendLife decrements, anchors the regen timestamp, and refuses at 0', () => {
+    expect(useMetaStore.getState().spendLife()).toBe(true);
+    const s = useMetaStore.getState();
+    expect(s.lives).toBe(MAX_LIVES - 1);
+    expect(s.lastLifeAt).not.toBeNull(); // countdown started
+    useMetaStore.setState({ lives: 0, lastLifeAt: Date.now() });
+    expect(useMetaStore.getState().spendLife()).toBe(false);
+    expect(useMetaStore.getState().lives).toBe(0);
+  });
+
+  it('refillLives costs coins and refuses when short or already full', () => {
+    useMetaStore.setState({ lives: 1, lastLifeAt: Date.now(), coins: LIVES_REFILL_COST - 1 });
+    expect(useMetaStore.getState().refillLives()).toBe(false);
+    useMetaStore.setState({ coins: LIVES_REFILL_COST });
+    expect(useMetaStore.getState().refillLives()).toBe(true);
+    const s = useMetaStore.getState();
+    expect(s.lives).toBe(MAX_LIVES);
+    expect(s.lastLifeAt).toBeNull();
+    expect(s.coins).toBe(0);
+    expect(useMetaStore.getState().refillLives()).toBe(false); // already full
+  });
+
   it('persists progression and settings but never the transient celebration', async () => {
     useMetaStore.getState().setSoundEnabled(false);
     useMetaStore.getState().advanceLevel();
@@ -69,6 +139,8 @@ describe('metaStore', () => {
     expect(persisted.state.currentLevel).toBe(2);
     expect(persisted.state.coins).toBe(WIN_REWARD_COINS);
     expect(persisted.state.boosters).toEqual({ undo: 3, shuffle: 3, extraBottle: 3 });
+    expect(persisted.state.lives).toBe(MAX_LIVES);
+    expect(persisted.state.lastLifeAt).toBeNull();
     expect(persisted.state.pendingCoinReward).toBeUndefined();
   });
 });

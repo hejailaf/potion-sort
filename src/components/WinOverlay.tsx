@@ -10,7 +10,14 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useGameStore } from '@/state/gameStore';
-import { BoosterKind, boosterDropForLevel, useMetaStore, WIN_REWARD_COINS } from '@/state/metaStore';
+import {
+  BoosterKind,
+  boosterDropForLevel,
+  DAILY_REWARD_COINS,
+  dailyBoosterKind,
+  useMetaStore,
+  WIN_REWARD_COINS,
+} from '@/state/metaStore';
 import { Fireworks } from './effects/Fireworks';
 
 const DROP_LABELS: Record<BoosterKind, string> = {
@@ -19,19 +26,22 @@ const DROP_LABELS: Record<BoosterKind, string> = {
   extraBottle: '+Bottle',
 };
 
-/** Dim → fireworks → reward card → Continue. Appears once the final pour animation lands. */
+/** Dim → fireworks → reward card → Continue. Appears once every pour animation lands. */
 export function WinOverlay() {
   const status = useGameStore((s) => s.status);
-  const pouring = useGameStore((s) => s.pouring);
-  if (status !== 'won' || pouring !== null) return null;
+  const animating = useGameStore((s) => s.activePours.length > 0);
+  if (status !== 'won' || animating) return null;
   return <WinContent />;
 }
 
 function WinContent() {
   const router = useRouter();
+  const daily = useGameStore((s) => s.mode === 'daily');
   const advanceLevel = useMetaStore((s) => s.advanceLevel);
+  const completeDaily = useMetaStore((s) => s.completeDaily);
   const currentLevel = useMetaStore((s) => s.currentLevel);
-  const drop = boosterDropForLevel(currentLevel); // same table advanceLevel applies
+  // same tables advanceLevel/completeDaily apply
+  const drop = daily ? dailyBoosterKind() : boosterDropForLevel(currentLevel);
   const continued = useRef(false);
   const dim = useSharedValue(0);
   const card = useSharedValue(0);
@@ -50,7 +60,8 @@ function WinContent() {
   const onContinue = () => {
     if (continued.current) return; // one-shot: no double-advance
     continued.current = true;
-    advanceLevel();
+    if (daily) completeDaily();
+    else advanceLevel();
     router.replace('/');
   };
 
@@ -60,10 +71,10 @@ function WinContent() {
       <Fireworks />
       <View style={styles.center} pointerEvents="box-none">
         <Animated.View style={[styles.card, cardStyle]}>
-          <Text style={styles.title}>Perfect!</Text>
+          <Text style={styles.title}>{daily ? 'Daily Done!' : 'Perfect!'}</Text>
           <View style={styles.rewardRow}>
             <View style={styles.coin} />
-            <Text style={styles.reward}>+{WIN_REWARD_COINS}</Text>
+            <Text style={styles.reward}>+{daily ? DAILY_REWARD_COINS : WIN_REWARD_COINS}</Text>
           </View>
           {drop !== null && <Text style={styles.drop}>Bonus: +1 {DROP_LABELS[drop]}</Text>}
           <Pressable style={styles.continueButton} onPress={onContinue}>

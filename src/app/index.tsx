@@ -4,13 +4,16 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CoinFly } from '@/components/effects/CoinFly';
 import { CoinCounter } from '@/components/hud/CoinCounter';
+import { HomeTabBar } from '@/components/hud/HomeTabBar';
+import { LivesPill } from '@/components/hud/LivesPill';
 import { SettingsSheet } from '@/components/hud/SettingsSheet';
 import { StarryBackground } from '@/components/StarryBackground';
-import { useMetaStore } from '@/state/metaStore';
+import { todayKey, useMetaStore } from '@/state/metaStore';
 
 export default function HomeScreen() {
   const router = useRouter();
   const currentLevel = useMetaStore((s) => s.currentLevel);
+  const dailyDone = useMetaStore((s) => s.lastDailyCompleted === todayKey());
   const pendingCoinReward = useMetaStore((s) => s.pendingCoinReward);
   const clearCoinCelebration = useMetaStore((s) => s.clearCoinCelebration);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -20,7 +23,10 @@ export default function HomeScreen() {
       <StarryBackground />
       <SafeAreaView style={styles.content}>
         <View style={styles.topBar}>
-          <CoinCounter />
+          <View style={styles.topLeft}>
+            <CoinCounter />
+            <LivesPill />
+          </View>
           <Pressable onPress={() => setSettingsOpen(true)} style={styles.gear} hitSlop={8}>
             <Text style={styles.gearText}>⚙</Text>
           </Pressable>
@@ -30,7 +36,15 @@ export default function HomeScreen() {
           <Pressable style={styles.playButton} onPress={() => router.push('/game')}>
             <Text style={styles.playText}>Level {currentLevel}</Text>
           </Pressable>
+          <Pressable
+            style={[styles.dailyButton, dailyDone && styles.dailyDone]}
+            disabled={dailyDone}
+            onPress={() => router.push('/game?daily=1')}
+          >
+            <Text style={styles.dailyText}>{dailyDone ? '✓ Daily Complete' : '✦ Daily Challenge'}</Text>
+          </Pressable>
         </View>
+        <HomeTabBar />
       </SafeAreaView>
       {pendingCoinReward !== null && <CoinFly onDone={clearCoinCelebration} />}
       <SettingsSheet visible={settingsOpen} onClose={() => setSettingsOpen(false)} />
@@ -51,6 +65,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 12,
+  },
+  topLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   gear: {
     backgroundColor: 'rgba(255,255,255,0.12)',
@@ -85,6 +104,20 @@ const styles = StyleSheet.create({
   playText: {
     color: '#FFFFFF',
     fontSize: 22,
+    fontWeight: '700',
+  },
+  dailyButton: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 999,
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+  },
+  dailyDone: {
+    opacity: 0.5,
+  },
+  dailyText: {
+    color: '#FFE9A8',
+    fontSize: 16,
     fontWeight: '700',
   },
 });

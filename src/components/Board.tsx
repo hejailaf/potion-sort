@@ -4,22 +4,16 @@ import { Bottle } from './Bottle';
 
 export function Board() {
   const bottles = useGameStore((s) => s.bottles);
-  const prevBottles = useGameStore((s) => s.prevBottles);
-  const pouring = useGameStore((s) => s.pouring);
+  const activePours = useGameStore((s) => s.activePours);
   const selectedId = useGameStore((s) => s.selectedId);
   const invalidTapToken = useGameStore((s) => s.invalidTapToken);
   const invalidBottleId = useGameStore((s) => s.invalidBottleId);
   const tapBottle = useGameStore((s) => s.tapBottle);
   const { width: screenWidth } = useWindowDimensions();
 
-  // while a pour animates, the board shows the pre-pour state; the overlay adds the motion
-  const displayBottles = pouring && prevBottles ? prevBottles : bottles;
-
-  const half = Math.ceil(displayBottles.length / 2);
+  const half = Math.ceil(bottles.length / 2);
   const rows =
-    displayBottles.length <= 6
-      ? [displayBottles]
-      : [displayBottles.slice(0, half), displayBottles.slice(half)];
+    bottles.length <= 6 ? [bottles] : [bottles.slice(0, half), bottles.slice(half)];
   const perRow = Math.max(...rows.map((r) => r.length));
   const bottleWidth = Math.min(56, Math.floor((screenWidth - 32 - (perRow - 1) * 10) / perRow));
 
@@ -27,17 +21,22 @@ export function Board() {
     <View style={styles.board}>
       {rows.map((row, r) => (
         <View key={r} style={styles.row}>
-          {row.map((bottle) => (
-            <Bottle
-              key={bottle.id}
-              bottle={bottle}
-              width={bottleWidth}
-              selected={bottle.id === selectedId}
-              hidden={pouring?.from === bottle.id}
-              shakeToken={bottle.id === invalidBottleId ? invalidTapToken : 0}
-              onTap={tapBottle}
-            />
-          ))}
+          {row.map((bottle) => {
+            // a pour's target stays frozen at its pre-pour fill (the overlay animates
+            // the growth on top); its source is hidden behind the flying clone
+            const asTarget = activePours.find((p) => p.move.to === bottle.id);
+            return (
+              <Bottle
+                key={bottle.id}
+                bottle={asTarget ? asTarget.tgtBefore : bottle}
+                width={bottleWidth}
+                selected={bottle.id === selectedId}
+                hidden={activePours.some((p) => p.move.from === bottle.id)}
+                shakeToken={bottle.id === invalidBottleId ? invalidTapToken : 0}
+                onTap={tapBottle}
+              />
+            );
+          })}
         </View>
       ))}
     </View>

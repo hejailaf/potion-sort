@@ -1,3 +1,4 @@
+import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,12 +16,15 @@ import { useGameStore } from '@/state/gameStore';
 import { useMetaStore } from '@/state/metaStore';
 
 export default function GameScreen() {
+  const { daily } = useLocalSearchParams<{ daily?: string }>();
   const resumeOrLoad = useGameStore((s) => s.resumeOrLoad);
+  const loadDaily = useGameStore((s) => s.loadDaily);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
-    resumeOrLoad(useMetaStore.getState().currentLevel);
-  }, [resumeOrLoad]);
+    if (daily) loadDaily();
+    else resumeOrLoad(useMetaStore.getState().currentLevel);
+  }, [daily, loadDaily, resumeOrLoad]);
 
   return (
     <View style={styles.container}>

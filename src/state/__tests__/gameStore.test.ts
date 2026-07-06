@@ -28,16 +28,41 @@ const completionLevel: LevelDef = {
   emptyBottles: 1,
 };
 
+/** Two filled + two empty bottles — room for two disjoint simultaneous pours. */
+const quadLevel: LevelDef = {
+  id: 97,
+  seed: 0,
+  bottles: [
+    ['ruby', 'ruby', 'gold', 'gold'],
+    ['gold', 'gold', 'ruby', 'ruby'],
+  ],
+  emptyBottles: 2,
+};
+
+/** b1→b0 corks b0 (ruby×4); b2→b3 is an unrelated non-completing pour. */
+const comboLevel: LevelDef = {
+  id: 96,
+  seed: 0,
+  bottles: [
+    ['ruby', 'ruby', 'ruby'],
+    ['gold', 'ruby'],
+    ['gold', 'gold'],
+  ],
+  emptyBottles: 1,
+};
+
 function load(def: LevelDef) {
   useGameStore.setState({ level: def, bottles: createBottles(def) });
 }
 
 const tap = (id: string) => useGameStore.getState().tapBottle(id);
-const finishPour = () => useGameStore.getState().finishPour();
+const finishAllPours = () => {
+  for (const p of useGameStore.getState().activePours) useGameStore.getState().finishPour(p.id);
+};
 const pour = (from: string, to: string) => {
   tap(from);
   tap(to);
-  finishPour();
+  finishAllPours();
 };
 
 beforeEach(() => {
@@ -54,7 +79,7 @@ describe('gameStore', () => {
     expect(s.selectedId).toBeNull();
     expect(s.history).toEqual([]);
     expect(s.status).toBe('playing');
-    expect(s.pouring).toBeNull();
+    expect(s.activePours).toEqual([]);
   });
 
   it('selects a non-empty bottle and ignores taps on empty bottles', () => {
@@ -72,7 +97,7 @@ describe('gameStore', () => {
     expect(useGameStore.getState().selectedId).toBeNull();
   });
 
-  it('applies a legal pour, records it, and starts the pour animation lock', () => {
+  it('applies a legal pour, records it, and tracks the animation with its snapshots', () => {
     load(tinyLevel);
     tap('b0');
     tap('b2');
@@ -81,23 +106,55 @@ describe('gameStore', () => {
     expect(s.bottles.find((b) => b.id === 'b2')?.segments).toEqual(['gold', 'gold']);
     expect(s.history).toEqual([{ from: 'b0', to: 'b2', count: 2, color: 'gold' }]);
     expect(s.selectedId).toBeNull();
-    expect(s.pouring).toEqual(s.history[0]);
-    expect(s.prevBottles).toEqual(createBottles(tinyLevel));
+    expect(s.activePours).toHaveLength(1);
+    expect(s.activePours[0].move).toEqual(s.history[0]);
+    expect(s.activePours[0].srcBefore.segments).toEqual(['ruby', 'ruby', 'gold', 'gold']);
+    expect(s.activePours[0].tgtBefore.segments).toEqual([]);
   });
 
-  it('locks input while a pour is animating and unlocks on finishPour', () => {
-    load(tinyLevel);
+  it('locks only the bottles of an in-flight pour; others stay live', () => {
+    load(quadLevel);
     tap('b0');
-    tap('b2'); // pour starts, input locked
-    const during = useGameStore.getState().bottles;
-    tap('b1');
-    tap('b0');
+    tap('b2'); // pour 1 in flight: b0 and b2 busy
+    tap('b0'); // busy source: ignored
+    tap('b2'); // busy target: ignored
     expect(useGameStore.getState().selectedId).toBeNull();
-    expect(useGameStore.getState().bottles).toEqual(during);
     expect(useGameStore.getState().history).toHaveLength(1);
-    finishPour();
-    tap('b1');
+    tap('b1'); // uninvolved bottle selects immediately
     expect(useGameStore.getState().selectedId).toBe('b1');
+    tap('b3'); // and pours while the first animation still flies
+    const s = useGameStore.getState();
+    expect(s.history).toHaveLength(2);
+    expect(s.activePours).toHaveLength(2);
+  });
+
+  it('two disjoint pours apply to engine state and finish independently', () => {
+    load(quadLevel);
+    tap('b0');
+    tap('b2');
+    tap('b1');
+    tap('b3');
+    const s = useGameStore.getState();
+    expect(s.bottles.find((b) => b.id === 'b0')?.segments).toEqual(['ruby', 'ruby']);
+    expect(s.bottles.find((b) => b.id === 'b2')?.segments).toEqual(['gold', 'gold']);
+    expect(s.bottles.find((b) => b.id === 'b1')?.segments).toEqual(['gold', 'gold']);
+    expect(s.bottles.find((b) => b.id === 'b3')?.segments).toEqual(['ruby', 'ruby']);
+    const [first, second] = s.activePours;
+    useGameStore.getState().finishPour(first.id);
+    expect(useGameStore.getState().activePours).toEqual([second]);
+  });
+
+  it('restart mid-animation clears active pours and stale finishPour ids no-op', () => {
+    useGameStore.getState().loadLevel(1, 7);
+    const src = useGameStore.getState().bottles.find((b) => b.segments.length > 0)!.id;
+    tap(src);
+    tap('b3'); // tier 1: b3 is empty
+    const staleId = useGameStore.getState().activePours[0].id;
+    useGameStore.getState().restart();
+    expect(useGameStore.getState().activePours).toEqual([]);
+    useGameStore.getState().finishPour(staleId); // animation callback landing after restart
+    expect(useGameStore.getState().activePours).toEqual([]);
+    expect(useGameStore.getState().completionToken).toBe(0);
   });
 
   it('keeps state untouched on an illegal pour and signals the UI', () => {
@@ -111,17 +168,33 @@ describe('gameStore', () => {
     expect(s.selectedId).toBe('b0');
     expect(s.invalidTapToken).toBe(1);
     expect(s.invalidBottleId).toBe('b1');
-    expect(s.pouring).toBeNull();
+    expect(s.activePours).toEqual([]);
   });
 
-  it('bumps the completion token exactly once when a pour completes a bottle', () => {
+  it('bumps the completion token once, when the corking pour finishes', () => {
     load(completionLevel);
-    pour('b1', 'b0'); // ruby onto ruby×3 -> b0 complete
+    tap('b1');
+    tap('b0'); // ruby onto ruby×3 -> corks b0 when the animation lands
+    expect(useGameStore.getState().completionToken).toBe(0); // in flight: not yet
+    finishAllPours();
     expect(useGameStore.getState().completionToken).toBe(1);
     expect(useGameStore.getState().completedBottleId).toBe('b0');
     pour('b1', 'b2'); // gold×3 into empty -> nothing completes
     expect(useGameStore.getState().completionToken).toBe(1);
-    expect(useGameStore.getState().completedBottleId).toBeNull();
+  });
+
+  it('completion effects wait for the corking pour, not other in-flight pours', () => {
+    load(comboLevel);
+    tap('b1');
+    tap('b0'); // corking pour
+    tap('b2');
+    tap('b3'); // unrelated pour
+    const [corking, plain] = useGameStore.getState().activePours;
+    useGameStore.getState().finishPour(plain.id);
+    expect(useGameStore.getState().completionToken).toBe(0);
+    useGameStore.getState().finishPour(corking.id);
+    expect(useGameStore.getState().completionToken).toBe(1);
+    expect(useGameStore.getState().completedBottleId).toBe('b0');
   });
 
   it('does not let a corked (complete) bottle be selected', () => {
@@ -227,6 +300,33 @@ describe('gameStore', () => {
     expect(useMetaStore.getState().boosters.extraBottle).toBe(2);
     useGameStore.getState().loadLevel(1, 7);
     expect(useGameStore.getState().extraBottleUsed).toBe(false);
+  });
+
+  it('loadDaily deals a deterministic daily board, resumes it, and restart keeps daily mode', () => {
+    useGameStore.getState().loadDaily();
+    const s1 = useGameStore.getState();
+    expect(s1.mode).toBe('daily');
+    const dealt = s1.bottles;
+    const seed = s1.level!.seed;
+
+    // same day -> resume the in-progress board, not a re-deal
+    const src = dealt.find((b) => b.segments.length > 0)!.id;
+    const empty = dealt.find((b) => b.segments.length === 0)!.id;
+    pour(src, empty);
+    const midGame = useGameStore.getState().bottles;
+    useGameStore.getState().loadDaily();
+    expect(useGameStore.getState().bottles).toEqual(midGame);
+
+    // restart re-deals the identical daily (and stays in daily mode)
+    useGameStore.getState().restart();
+    const s2 = useGameStore.getState();
+    expect(s2.mode).toBe('daily');
+    expect(s2.level?.seed).toBe(seed);
+    expect(s2.bottles).toEqual(dealt);
+
+    // a persisted daily board never hijacks normal play
+    useGameStore.getState().resumeOrLoad(useGameStore.getState().level!.id);
+    expect(useGameStore.getState().mode).toBe('normal');
   });
 
   it('reaches won status after a full hand-played win path and logs it', () => {

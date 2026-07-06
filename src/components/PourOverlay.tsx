@@ -12,41 +12,43 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
-import { BOTTLE_CAPACITY, COLOR_HEX, Move } from '@/engine/types';
-import { useGameStore } from '@/state/gameStore';
+import { BOTTLE_CAPACITY, COLOR_HEX } from '@/engine/types';
+import { ActivePour, useGameStore } from '@/state/gameStore';
 import { playSfx } from '@/sound';
 import { bottleLayouts } from './bottleLayout';
 import { Segment } from './Segment';
 
-/** Visual replay of the already-committed pour: fly, tilt, stream, fill, return. */
+/** Visual replay of already-committed pours: fly, tilt, stream, fill, return. */
 export function PourOverlay() {
-  const pouring = useGameStore((s) => s.pouring);
-  const moveCount = useGameStore((s) => s.history.length);
-  if (!pouring) return null;
-  return <PourAnimation key={moveCount} move={pouring} />;
+  const activePours = useGameStore((s) => s.activePours);
+  return (
+    <>
+      {activePours.map((p) => (
+        <PourAnimation key={p.id} pour={p} />
+      ))}
+    </>
+  );
 }
 
 const FLY_MS = 220;
 const POUR_MS = 360;
 const RETURN_MS = 240;
 
-function PourAnimation({ move }: { move: Move }) {
+function PourAnimation({ pour }: { pour: ActivePour }) {
+  const { move } = pour;
   const finishPour = useGameStore((s) => s.finishPour);
   const progress = useSharedValue(0); // 0→1 fly, 1→2 pour, 2→3 return
 
   const setup = useMemo(() => {
-    const prev = useGameStore.getState().prevBottles;
-    const src = prev?.find((b) => b.id === move.from);
-    const tgt = prev?.find((b) => b.id === move.to);
     const s = bottleLayouts.get(move.from);
     const t = bottleLayouts.get(move.to);
-    if (!prev || !src || !tgt || !s || !t) return null;
+    if (!s || !t) return null;
     const sign = s.x <= t.x ? 1 : -1; // approach side: hover before the target, tilt over it
     return {
       s,
       t,
-      srcSegments: src.segments,
-      tgtPrevCount: tgt.segments.length,
+      srcSegments: pour.srcBefore.segments,
+      tgtPrevCount: pour.tgtBefore.segments.length,
       segH: t.h / BOTTLE_CAPACITY,
       srcSegH: s.h / BOTTLE_CAPACITY,
       startX: s.x,
@@ -55,20 +57,20 @@ function PourAnimation({ move }: { move: Move }) {
       hoverY: t.y - s.h * 0.6,
       rotation: sign * 62,
     };
-  }, [move]);
+  }, [pour, move]);
 
   useEffect(() => {
     if (!setup) {
-      finishPour(); // layout not measured yet (first frame edge case): skip the visuals
+      finishPour(pour.id); // layout not measured yet (first frame edge case): skip the visuals
       return;
     }
     const sfx = setTimeout(() => playSfx('pour'), FLY_MS - 40);
-    const safety = setTimeout(finishPour, FLY_MS + POUR_MS + RETURN_MS + 700);
+    const safety = setTimeout(() => finishPour(pour.id), FLY_MS + POUR_MS + RETURN_MS + 700);
     progress.value = withSequence(
       withTiming(1, { duration: FLY_MS, easing: Easing.out(Easing.cubic) }),
       withTiming(2, { duration: POUR_MS, easing: Easing.linear }),
       withTiming(3, { duration: RETURN_MS, easing: Easing.in(Easing.cubic) }, (finished) => {
-        if (finished) runOnJS(finishPour)();
+        if (finished) runOnJS(finishPour)(pour.id);
       }),
     );
     return () => {

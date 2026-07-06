@@ -1,6 +1,24 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useGameStore } from '@/state/gameStore';
-import { useMetaStore } from '@/state/metaStore';
+import { BOOSTER_COST, BoosterKind, useMetaStore } from '@/state/metaStore';
+
+/** At 0 charges the button offers a coin purchase, then runs the action (buy-and-use). */
+function buyThenRun(kind: BoosterKind, label: string, action: () => void) {
+  const { coins, buyBooster } = useMetaStore.getState();
+  if (coins < BOOSTER_COST) {
+    Alert.alert('Not enough coins', `A ${label} charge costs ${BOOSTER_COST} coins — you have ${coins}.`);
+    return;
+  }
+  Alert.alert(`Buy ${label}`, `Spend ${BOOSTER_COST} coins for 1 ${label}?`, [
+    { text: 'Cancel', style: 'cancel' },
+    {
+      text: 'Buy',
+      onPress: () => {
+        if (buyBooster(kind)) action();
+      },
+    },
+  ]);
+}
 
 export function BoosterBar() {
   const boosters = useMetaStore((s) => s.boosters);
@@ -11,28 +29,31 @@ export function BoosterBar() {
   const extraBottleUsed = useGameStore((s) => s.extraBottleUsed);
   const won = useGameStore((s) => s.status === 'won');
 
+  const press = (kind: BoosterKind, label: string, action: () => void) =>
+    boosters[kind] === 0 ? () => buyThenRun(kind, label, action) : action;
+
   return (
     <View style={styles.bar}>
       <BoosterButton
         glyph="↩"
         label="Undo"
         count={boosters.undo}
-        disabled={won || boosters.undo === 0 || historyLength === 0}
-        onPress={undoMove}
+        disabled={won || historyLength === 0}
+        onPress={press('undo', 'Undo', undoMove)}
       />
       <BoosterButton
         glyph="⇄"
         label="Shuffle"
         count={boosters.shuffle}
-        disabled={won || boosters.shuffle === 0}
-        onPress={shuffleBoard}
+        disabled={won}
+        onPress={press('shuffle', 'Shuffle', shuffleBoard)}
       />
       <BoosterButton
         glyph="＋"
         label="Bottle"
         count={boosters.extraBottle}
-        disabled={won || boosters.extraBottle === 0 || extraBottleUsed}
-        onPress={addExtraBottle}
+        disabled={won || extraBottleUsed}
+        onPress={press('extraBottle', 'Bottle', addExtraBottle)}
       />
     </View>
   );

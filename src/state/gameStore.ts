@@ -5,7 +5,23 @@ import { createBottles, generateLevel, shuffleBottles } from '../engine/generato
 import { applyPour, isBottleComplete, isWin } from '../engine/rules';
 import { Bottle, GameStatus, LevelDef, Move } from '../engine/types';
 import { popMove, pushMove, revertMove } from '../engine/undo';
-import { useMetaStore } from './metaStore';
+import { todayKey, useMetaStore } from './metaStore';
+
+/** fixed difficulty tier for the daily challenge (past the hand-tuned range) */
+const DAILY_LEVEL = 30;
+
+export interface ActivePour {
+  id: number;
+  move: Move;
+  /** pre-pour source snapshot — the flying clone's contents */
+  srcBefore: Bottle;
+  /** pre-pour target snapshot — board display + fill baseline */
+  tgtBefore: Bottle;
+  /** this pour corks the target; completion effects fire when it finishes */
+  completes: boolean;
+}
+
+let pourSeq = 0;
 
 interface GameState {
   level: LevelDef | null;
@@ -13,26 +29,28 @@ interface GameState {
   selectedId: string | null;
   history: Move[];
   status: GameStatus;
+  /** daily-challenge boards win differently and never advance the level counter */
+  mode: 'normal' | 'daily';
   /** bumped on every illegal pour; UI reacts with shake + error haptic */
   invalidTapToken: number;
   invalidBottleId: string | null;
   /**
-   * The move currently being animated. Engine state is already committed;
-   * this only locks input and lets the UI replay the move visually.
+   * Pours currently being animated. Engine state is already committed;
+   * these lock only their own two bottles and let the UI replay each move visually.
    */
-  pouring: Move | null;
-  /** board state as it was just before the pouring move, for the animation layer */
-  prevBottles: Bottle[] | null;
+  activePours: ActivePour[];
   /** bumped when a pour completes a bottle — completion effects key off this, exactly once */
   completionToken: number;
   completedBottleId: string | null;
   /** +Bottle booster is limited to once per level */
   extraBottleUsed: boolean;
-  loadLevel: (levelNumber: number, seed?: number) => void;
+  loadLevel: (levelNumber: number, seed?: number, mode?: 'normal' | 'daily') => void;
   /** resume the persisted in-progress board when it matches, else deal fresh */
   resumeOrLoad: (levelNumber: number) => void;
+  /** deal (or resume) today's seeded daily-challenge board */
+  loadDaily: () => void;
   tapBottle: (id: string) => void;
-  finishPour: () => void;
+  finishPour: (pourId: number) => void;
   restart: () => void;
   undoMove: () => void;
   shuffleBoard: () => void;
@@ -47,15 +65,15 @@ export const useGameStore = create<GameState>()(
   selectedId: null,
   history: [],
   status: 'playing',
+  mode: 'normal',
   invalidTapToken: 0,
   invalidBottleId: null,
-  pouring: null,
-  prevBottles: null,
+  activePours: [],
   completionToken: 0,
   completedBottleId: null,
   extraBottleUsed: false,
 
-  loadLevel: (levelNumber, seed) => {
+  loadLevel: (levelNumber, seed, mode = 'normal') => {
     const level = generateLevel(levelNumber, seed);
     set({
       level,
@@ -63,9 +81,9 @@ export const useGameStore = create<GameState>()(
       selectedId: null,
       history: [],
       status: 'playing',
+      mode,
       invalidBottleId: null,
-      pouring: null,
-      prevBottles: null,
+      activePours: [],
       completedBottleId: null,
       extraBottleUsed: false,
     });
@@ -74,17 +92,30 @@ export const useGameStore = create<GameState>()(
   // ponytail: assumes persist has rehydrated by the time the game screen mounts
   // (home screen comes first); if deep-linking to /game ever exists, gate on hydration.
   resumeOrLoad: (levelNumber) => {
-    const { level, status, bottles } = get();
-    if (level?.id === levelNumber && status === 'playing' && bottles.length > 0) {
-      set({ selectedId: null, pouring: null, prevBottles: null, invalidBottleId: null });
+    const { level, status, bottles, mode } = get();
+    if (mode === 'normal' && level?.id === levelNumber && status === 'playing' && bottles.length > 0) {
+      set({ selectedId: null, activePours: [], invalidBottleId: null });
       return;
     }
     get().loadLevel(levelNumber);
   },
 
+  loadDaily: () => {
+    const seed = Number(todayKey().replace(/-/g, ''));
+    const { level, status, bottles, mode } = get();
+    if (mode === 'daily' && level?.seed === seed && status === 'playing' && bottles.length > 0) {
+      set({ selectedId: null, activePours: [], invalidBottleId: null });
+      return;
+    }
+    get().loadLevel(DAILY_LEVEL, seed, 'daily');
+  },
+
   tapBottle: (id) => {
-    const { bottles, selectedId, history, status, level, pouring } = get();
-    if (status === 'won' || pouring !== null) return;
+    const { bottles, selectedId, history, status, level, activePours } = get();
+    // only the bottles of an in-flight pour are locked; taps on them are
+    // silently ignored (the player is being fast, not wrong — no shake)
+    const busy = activePours.some((p) => p.move.from === id || p.move.to === id);
+    if (status === 'won' || busy) return;
     const tapped = bottles.find((b) => b.id === id);
     if (!tapped) return;
 
@@ -109,38 +140,51 @@ export const useGameStore = create<GameState>()(
     if (won) {
       console.log(`WIN: level ${level?.id} solved in ${history.length + 1} moves`);
     }
+    const srcBefore = bottles.find((b) => b.id === selectedId)!;
     set((s) => ({
       bottles: result.bottles,
-      prevBottles: bottles,
-      pouring: result.move,
+      activePours: [
+        ...s.activePours,
+        { id: ++pourSeq, move: result.move, srcBefore, tgtBefore: tapped, completes: completed },
+      ],
       history: pushMove(history, result.move),
       selectedId: null,
       status: won ? 'won' : 'playing',
-      completedBottleId: completed ? id : null,
-      completionToken: completed ? s.completionToken + 1 : s.completionToken,
     }));
   },
 
-  finishPour: () => {
-    set({ pouring: null, prevBottles: null });
+  finishPour: (pourId) => {
+    set((s) => {
+      const done = s.activePours.find((p) => p.id === pourId);
+      if (!done) return {}; // stale id after restart/exit: no-op
+      return {
+        activePours: s.activePours.filter((p) => p.id !== pourId),
+        // completion effects fire now — when the corking animation lands
+        ...(done.completes
+          ? { completionToken: s.completionToken + 1, completedBottleId: done.move.to }
+          : {}),
+      };
+    });
   },
 
   restart: () => {
-    const { level } = get();
-    if (level) get().loadLevel(level.id, level.seed);
+    const { level, mode } = get();
+    if (!level) return;
+    if (!useMetaStore.getState().spendLife()) return;
+    get().loadLevel(level.id, level.seed, mode);
   },
 
   undoMove: () => {
-    const { bottles, history, pouring, status } = get();
-    if (pouring !== null || status === 'won' || history.length === 0) return;
+    const { bottles, history, activePours, status } = get();
+    if (activePours.length > 0 || status === 'won' || history.length === 0) return;
     if (!useMetaStore.getState().consumeBooster('undo')) return;
     const { history: rest, move } = popMove(history);
     set({ bottles: revertMove(bottles, move!), history: rest, selectedId: null });
   },
 
   shuffleBoard: () => {
-    const { bottles, level, history, pouring, status } = get();
-    if (pouring !== null || status === 'won') return;
+    const { bottles, level, history, activePours, status } = get();
+    if (activePours.length > 0 || status === 'won') return;
     if (useMetaStore.getState().boosters.shuffle <= 0) return;
     const next = shuffleBottles(bottles, (level?.seed ?? 1) * 31 + history.length + 1);
     if (next === null) {
@@ -154,8 +198,8 @@ export const useGameStore = create<GameState>()(
   },
 
   addExtraBottle: () => {
-    const { bottles, pouring, status, extraBottleUsed } = get();
-    if (pouring !== null || status === 'won' || extraBottleUsed) return;
+    const { bottles, activePours, status, extraBottleUsed } = get();
+    if (activePours.length > 0 || status === 'won' || extraBottleUsed) return;
     if (!useMetaStore.getState().consumeBooster('extraBottle')) return;
     set({ bottles: [...bottles, { id: 'extra', segments: [] }], extraBottleUsed: true });
   },
@@ -169,6 +213,7 @@ export const useGameStore = create<GameState>()(
         bottles: s.bottles,
         history: s.history,
         status: s.status,
+        mode: s.mode,
         extraBottleUsed: s.extraBottleUsed,
       }),
     },
