@@ -9,8 +9,7 @@ import { CoinCounter } from '@/components/hud/CoinCounter';
 import { StarryBackground } from '@/components/StarryBackground';
 import { useMetaStore } from '@/state/metaStore';
 
-// ponytail: replace with the real RevenueCat public Apple API key (Phase 0 #3)
-const RC_APPLE_KEY = 'appl_PLACEHOLDER';
+const RC_APPLE_KEY = 'appl_GrAwncMkfMBVnHPdKduNzwMNnyz';
 
 /** ASC consumable product id → coins granted */
 const COIN_PACKS: Record<string, number> = {
