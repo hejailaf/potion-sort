@@ -47,7 +47,12 @@ export default function ShopScreen() {
       return;
     }
     Purchases.getOfferings()
-      .then((offerings) => setPackages(offerings.current?.availablePackages ?? []))
+      .then((offerings) => {
+        const packs = offerings.current?.availablePackages ?? [];
+        // smallest pack first, regardless of dashboard order
+        packs.sort((a, b) => (COIN_PACKS[a.product.identifier] ?? 0) - (COIN_PACKS[b.product.identifier] ?? 0));
+        setPackages(packs);
+      })
       .catch(() => setPackages([]));
   }, []);
 
