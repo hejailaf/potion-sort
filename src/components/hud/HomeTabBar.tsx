@@ -1,29 +1,46 @@
+import { useRouter } from 'expo-router';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { presentLeaderboard } from '@/gamecenter';
 
-// ponytail: purely visual placeholders — becomes a real expo-router Tabs group in v1.2 when Shop exists
-const TABS = [
-  { glyph: '⌂', label: 'Home', locked: false },
-  { glyph: '🛒', label: 'Shop', locked: true },
-  { glyph: '🏆', label: 'Ranks', locked: true },
-  { glyph: '👥', label: 'Teams', locked: true },
-];
+// ponytail: Shop is a modal screen and Ranks is a native GC sheet — a real Tabs
+// group waits until a second in-tab destination exists (Teams)
+const TABS = ['home', 'shop', 'ranks', 'teams'] as const;
+type Tab = (typeof TABS)[number];
+
+const TAB_META: Record<Tab, { glyph: string; label: string; locked: boolean }> = {
+  home: { glyph: '⌂', label: 'Home', locked: false },
+  shop: { glyph: '🛒', label: 'Shop', locked: false },
+  ranks: { glyph: '🏆', label: 'Ranks', locked: false },
+  teams: { glyph: '👥', label: 'Teams', locked: true },
+};
 
 export function HomeTabBar() {
+  const router = useRouter();
+
+  const onPress = (tab: Tab) => {
+    if (tab === 'shop') router.push('/shop');
+    else if (tab === 'ranks') {
+      if (!presentLeaderboard()) {
+        Alert.alert('Game Center unavailable', 'Sign in to Game Center in Settings to see rankings.');
+      }
+    } else if (tab === 'teams') {
+      Alert.alert('Coming soon', 'Teams unlocks in a future update.');
+    }
+  };
+
   return (
     <View style={styles.bar}>
-      {TABS.map((tab) => (
-        <Pressable
-          key={tab.label}
-          style={styles.tab}
-          disabled={!tab.locked}
-          onPress={() => Alert.alert('Coming soon', `${tab.label} unlocks in a future update.`)}
-        >
-          <Text style={[styles.glyph, tab.locked && styles.lockedText]}>{tab.glyph}</Text>
-          <Text style={[styles.label, tab.locked && styles.lockedText]}>
-            {tab.locked ? `🔒 ${tab.label}` : tab.label}
-          </Text>
-        </Pressable>
-      ))}
+      {TABS.map((tab) => {
+        const meta = TAB_META[tab];
+        return (
+          <Pressable key={tab} style={styles.tab} disabled={tab === 'home'} onPress={() => onPress(tab)}>
+            <Text style={[styles.glyph, meta.locked && styles.lockedText]}>{meta.glyph}</Text>
+            <Text style={[styles.label, meta.locked && styles.lockedText]}>
+              {meta.locked ? `🔒 ${meta.label}` : meta.label}
+            </Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }

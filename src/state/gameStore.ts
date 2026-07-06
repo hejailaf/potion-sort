@@ -44,6 +44,8 @@ interface GameState {
   completedBottleId: string | null;
   /** +Bottle booster is limited to once per level */
   extraBottleUsed: boolean;
+  /** transient: when this board was dealt — feeds the level_win duration metric */
+  startedAt: number;
   loadLevel: (levelNumber: number, seed?: number, mode?: 'normal' | 'daily') => void;
   /** resume the persisted in-progress board when it matches, else deal fresh */
   resumeOrLoad: (levelNumber: number) => void;
@@ -72,6 +74,7 @@ export const useGameStore = create<GameState>()(
   completionToken: 0,
   completedBottleId: null,
   extraBottleUsed: false,
+  startedAt: 0,
 
   loadLevel: (levelNumber, seed, mode = 'normal') => {
     const level = generateLevel(levelNumber, seed);
@@ -86,6 +89,8 @@ export const useGameStore = create<GameState>()(
       activePours: [],
       completedBottleId: null,
       extraBottleUsed: false,
+      // ponytail: resumed boards reset the clock on re-entry; fine for a coarse metric
+      startedAt: Date.now(),
     });
   },
 

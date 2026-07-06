@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { ACH, reportAchievement } from '@/gamecenter';
 import { useGameStore } from '@/state/gameStore';
 import { hapticError, hapticSuccess, playSfx } from '@/sound';
 import { bottleLayouts } from './bottleLayout';
@@ -27,6 +28,7 @@ export function EffectsLayer() {
     firedToken.current = completionToken;
     playSfx('complete');
     hapticSuccess();
+    reportAchievement(ACH.firstCork); // GameKit ignores re-reports once earned
     const layout = completedBottleId ? bottleLayouts.get(completedBottleId) : undefined;
     if (!layout) return;
     setBurst({ token: completionToken, x: layout.x + layout.w / 2, y: layout.y });

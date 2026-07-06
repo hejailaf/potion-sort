@@ -1,4 +1,6 @@
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { showRewardedAd } from '@/ads';
+import { track } from '@/analytics';
 import { useGameStore } from '@/state/gameStore';
 import { LIFE_REGEN_MS, LIVES_REFILL_COST, useMetaStore } from '@/state/metaStore';
 
@@ -6,11 +8,20 @@ interface LevelPillProps {
   onOpenSettings: () => void;
 }
 
+async function watchAdForLife(restart: () => void) {
+  if (await showRewardedAd('life')) {
+    if (useMetaStore.getState().grantLife()) restart();
+  } else {
+    Alert.alert('No ad available', 'Try again in a moment.');
+  }
+}
+
 function confirmRestart(restart: () => void) {
   const meta = useMetaStore.getState();
   meta.syncLives();
   const { lives, lastLifeAt, coins } = useMetaStore.getState();
   if (lives <= 0) {
+    track('out_of_lives', { coins });
     const mins = lastLifeAt !== null ? Math.ceil((lastLifeAt + LIFE_REGEN_MS - Date.now()) / 60_000) : 0;
     const body =
       coins >= LIVES_REFILL_COST
@@ -18,6 +29,7 @@ function confirmRestart(restart: () => void) {
         : `Next life in ${mins}m. (Refill costs ${LIVES_REFILL_COST} coins — you have ${coins}.)`;
     Alert.alert('Out of lives', body, [
       { text: 'Wait', style: 'cancel' },
+      { text: 'Watch ad (+1 ❤️)', onPress: () => watchAdForLife(restart) },
       ...(coins >= LIVES_REFILL_COST
         ? [
             {
@@ -33,7 +45,14 @@ function confirmRestart(restart: () => void) {
   }
   Alert.alert('Restart level?', 'Restarting costs 1 life.', [
     { text: 'Cancel', style: 'cancel' },
-    { text: 'Restart', style: 'destructive', onPress: restart },
+    {
+      text: 'Restart',
+      style: 'destructive',
+      onPress: () => {
+        track('level_restart', { level: useGameStore.getState().level?.id ?? 0 });
+        restart();
+      },
+    },
   ]);
 }
 

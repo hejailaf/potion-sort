@@ -1,20 +1,40 @@
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { showRewardedAd } from '@/ads';
+import { track } from '@/analytics';
 import { useGameStore } from '@/state/gameStore';
 import { BOOSTER_COST, BoosterKind, useMetaStore } from '@/state/metaStore';
 
-/** At 0 charges the button offers a coin purchase, then runs the action (buy-and-use). */
+async function watchAdForBooster(kind: BoosterKind, action: () => void) {
+  if (await showRewardedAd('booster')) {
+    useMetaStore.getState().grantBooster(kind);
+    action();
+  } else {
+    Alert.alert('No ad available', 'Try again in a moment.');
+  }
+}
+
+/** At 0 charges the button offers a coin purchase or a rewarded ad, then runs the action. */
 function buyThenRun(kind: BoosterKind, label: string, action: () => void) {
   const { coins, buyBooster } = useMetaStore.getState();
+  const adButton = { text: 'Watch ad (free)', onPress: () => watchAdForBooster(kind, action) };
   if (coins < BOOSTER_COST) {
-    Alert.alert('Not enough coins', `A ${label} charge costs ${BOOSTER_COST} coins — you have ${coins}.`);
+    Alert.alert(
+      'Not enough coins',
+      `A ${label} charge costs ${BOOSTER_COST} coins — you have ${coins}.`,
+      [{ text: 'Cancel', style: 'cancel' }, adButton],
+    );
     return;
   }
   Alert.alert(`Buy ${label}`, `Spend ${BOOSTER_COST} coins for 1 ${label}?`, [
     { text: 'Cancel', style: 'cancel' },
+    adButton,
     {
-      text: 'Buy',
+      text: `Buy (${BOOSTER_COST})`,
       onPress: () => {
-        if (buyBooster(kind)) action();
+        if (buyBooster(kind)) {
+          track('booster_bought', { kind });
+          action();
+        }
       },
     },
   ]);
@@ -30,7 +50,12 @@ export function BoosterBar() {
   const won = useGameStore((s) => s.status === 'won');
 
   const press = (kind: BoosterKind, label: string, action: () => void) =>
-    boosters[kind] === 0 ? () => buyThenRun(kind, label, action) : action;
+    boosters[kind] === 0
+      ? () => buyThenRun(kind, label, action)
+      : () => {
+          track('booster_used', { kind });
+          action();
+        };
 
   return (
     <View style={styles.bar}>

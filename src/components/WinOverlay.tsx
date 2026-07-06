@@ -9,6 +9,11 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import * as Notifications from 'expo-notifications';
+import * as StoreReview from 'expo-store-review';
+import { track } from '@/analytics';
+import { ACH, reportAchievement, submitHighestLevel } from '@/gamecenter';
+import { syncNotifications } from '@/notifications';
 import { useGameStore } from '@/state/gameStore';
 import {
   BoosterKind,
@@ -60,8 +65,38 @@ function WinContent() {
   const onContinue = () => {
     if (continued.current) return; // one-shot: no double-advance
     continued.current = true;
-    if (daily) completeDaily();
-    else advanceLevel();
+    const { history, startedAt } = useGameStore.getState();
+    const meta = useMetaStore.getState();
+
+    if (daily) {
+      completeDaily();
+      reportAchievement(ACH.firstDaily);
+      track('daily_completed', { moves: history.length });
+    } else {
+      const wonLevel = currentLevel; // currentLevel is the level just won (pre-advance)
+      advanceLevel();
+      submitHighestLevel(wonLevel);
+      reportAchievement(ACH.firstWin);
+      if (wonLevel >= 10) reportAchievement(ACH.level10);
+      if (wonLevel >= 25) reportAchievement(ACH.level25);
+      if ((wonLevel === 10 || wonLevel === 25) && meta.reviewPromptedFor < wonLevel) {
+        meta.markReviewPrompted(wonLevel);
+        StoreReview.requestReview().catch(() => undefined); // TestFlight suppresses this — fine
+      }
+      track('level_win', {
+        level: wonLevel,
+        moves: history.length,
+        duration_s: Math.round((Date.now() - startedAt) / 1000),
+      });
+    }
+
+    // one polite permission ask, after the player's first win — never at launch
+    if (!meta.notifPromptDone) {
+      meta.setNotifPromptDone();
+      Notifications.requestPermissionsAsync()
+        .then(() => syncNotifications())
+        .catch(() => undefined);
+    }
     router.replace('/');
   };
 
