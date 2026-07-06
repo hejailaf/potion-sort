@@ -51,6 +51,14 @@ const comboLevel: LevelDef = {
   emptyBottles: 1,
 };
 
+/** Two ruby sources + two empties — both can pour into one target to consolidate. */
+const stackLevel: LevelDef = {
+  id: 95,
+  seed: 0,
+  bottles: [['ruby'], ['ruby']],
+  emptyBottles: 2,
+};
+
 function load(def: LevelDef) {
   useGameStore.setState({ level: def, bottles: createBottles(def) });
 }
@@ -142,6 +150,24 @@ describe('gameStore', () => {
     const [first, second] = s.activePours;
     useGameStore.getState().finishPour(first.id);
     expect(useGameStore.getState().activePours).toEqual([second]);
+  });
+
+  it('lets a second pour stack into a target that is still being filled', () => {
+    load(stackLevel);
+    tap('b0');
+    tap('b2'); // pour 1: ruby -> empty b2, still animating
+    tap('b2'); // b2 is mid-fill: can't be picked up
+    expect(useGameStore.getState().selectedId).toBeNull();
+    tap('b1'); // free source selects
+    expect(useGameStore.getState().selectedId).toBe('b1');
+    tap('b2'); // pour 2 stacks onto the still-filling b2
+    const s = useGameStore.getState();
+    expect(s.activePours).toHaveLength(2);
+    expect(s.activePours.every((p) => p.move.to === 'b2')).toBe(true);
+    // baselines stack: first pour from empty, second on top of the first
+    expect(s.activePours[0].tgtBefore.segments).toEqual([]);
+    expect(s.activePours[1].tgtBefore.segments).toEqual(['ruby']);
+    expect(s.bottles.find((b) => b.id === 'b2')?.segments).toEqual(['ruby', 'ruby']);
   });
 
   it('restart mid-animation clears active pours and stale finishPour ids no-op', () => {

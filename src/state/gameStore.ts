@@ -112,14 +112,16 @@ export const useGameStore = create<GameState>()(
 
   tapBottle: (id) => {
     const { bottles, selectedId, history, status, level, activePours } = get();
-    // only the bottles of an in-flight pour are locked; taps on them are
-    // silently ignored (the player is being fast, not wrong — no shake)
-    const busy = activePours.some((p) => p.move.from === id || p.move.to === id);
-    if (status === 'won' || busy) return;
+    if (status === 'won') return;
+    // a bottle draining into another is off-limits until it lands; but a bottle
+    // that is only *receiving* a pour can still take more (rapid consolidation) —
+    // it just can't be picked up while its fill animates
+    if (activePours.some((p) => p.move.from === id)) return;
     const tapped = bottles.find((b) => b.id === id);
     if (!tapped) return;
 
     if (selectedId === null) {
+      if (activePours.some((p) => p.move.to === id)) return; // mid-fill: can't pick up
       // corked (complete) bottles are done — they can't be picked up again
       if (tapped.segments.length > 0 && !isBottleComplete(tapped)) set({ selectedId: id });
       return;
