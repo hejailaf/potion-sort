@@ -7,8 +7,8 @@ import mobileAds, {
 } from 'react-native-google-mobile-ads';
 import { track } from './analytics';
 
-// ponytail: swap for the real rewarded unit id before the production build
-const REWARDED_UNIT = __DEV__ ? TestIds.REWARDED : TestIds.REWARDED;
+// dev builds always serve Google test ads (never click real ads on your own app)
+const REWARDED_UNIT = __DEV__ ? TestIds.REWARDED : 'ca-app-pub-4626516640422808/7021615595';
 
 // ATT prompt strictly BEFORE ads init, and never at app launch — the lazy
 // once-guard makes both structurally guaranteed
