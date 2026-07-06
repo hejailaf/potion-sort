@@ -20,7 +20,11 @@ const COIN_PACKS: Record<string, number> = {
 
 let configured = false;
 function ensureConfigured() {
-  if (configured || RC_APPLE_KEY.includes('PLACEHOLDER')) return configured;
+  // ponytail: IAP products belong to the production bundle id in ASC — the .dev
+  // variant can never fetch them, so skip RevenueCat entirely outside release
+  // builds instead of logging guaranteed config errors. Test purchases on TestFlight.
+  if (__DEV__) return false;
+  if (configured) return true;
   Purchases.configure({ apiKey: RC_APPLE_KEY });
   configured = true;
   return true;
