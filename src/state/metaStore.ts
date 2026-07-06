@@ -68,6 +68,10 @@ interface MetaState {
   lastLifeAt: number | null;
   /** todayKey() of the last completed daily challenge */
   lastDailyCompleted: string | null;
+  /** notification permission has been requested once (after the first win) */
+  notifPromptDone: boolean;
+  /** highest win-milestone level a rating prompt was shown for (0 = never) */
+  reviewPromptedFor: number;
   /** transient: reward queued for the home-screen coin fly-in; never persisted */
   pendingCoinReward: number | null;
   setSoundEnabled: (value: boolean) => void;
@@ -88,6 +92,14 @@ interface MetaState {
   buyBooster: (kind: BoosterKind) => boolean;
   /** award the daily reward — at most once per calendar day */
   completeDaily: () => void;
+  setNotifPromptDone: () => void;
+  markReviewPrompted: (milestone: number) => void;
+  /** rewarded-ad reward: +1 life; returns false (nothing changes) at max */
+  grantLife: () => boolean;
+  /** rewarded-ad reward: one free booster charge */
+  grantBooster: (kind: BoosterKind) => void;
+  /** IAP grant; queues the coin fly-in celebration */
+  addCoins: (amount: number) => void;
 }
 
 export const useMetaStore = create<MetaState>()(
@@ -103,6 +115,8 @@ export const useMetaStore = create<MetaState>()(
       lives: MAX_LIVES,
       lastLifeAt: null,
       lastDailyCompleted: null,
+      notifPromptDone: false,
+      reviewPromptedFor: 0,
       pendingCoinReward: null,
       setSoundEnabled: (value) => set({ soundEnabled: value }),
       setHapticsEnabled: (value) => set({ hapticsEnabled: value }),
@@ -128,6 +142,24 @@ export const useMetaStore = create<MetaState>()(
         });
         return consumed;
       },
+      setNotifPromptDone: () => set({ notifPromptDone: true }),
+      markReviewPrompted: (milestone) =>
+        set((s) => ({ reviewPromptedFor: Math.max(s.reviewPromptedFor, milestone) })),
+      grantLife: () => {
+        let granted = false;
+        set((s) => {
+          const cur = regenLives(s.lives, s.lastLifeAt, Date.now());
+          if (cur.lives >= MAX_LIVES) return cur;
+          granted = true;
+          const lives = cur.lives + 1;
+          return { lives, lastLifeAt: lives >= MAX_LIVES ? null : cur.lastLifeAt };
+        });
+        return granted;
+      },
+      grantBooster: (kind) =>
+        set((s) => ({ boosters: { ...s.boosters, [kind]: s.boosters[kind] + 1 } })),
+      addCoins: (amount) =>
+        set((s) => ({ coins: s.coins + amount, pendingCoinReward: amount })),
       syncLives: () => set((s) => regenLives(s.lives, s.lastLifeAt, Date.now())),
       spendLife: () => {
         let spent = false;
@@ -189,6 +221,8 @@ export const useMetaStore = create<MetaState>()(
         lives: s.lives,
         lastLifeAt: s.lastLifeAt,
         lastDailyCompleted: s.lastDailyCompleted,
+        notifPromptDone: s.notifPromptDone,
+        reviewPromptedFor: s.reviewPromptedFor,
       }),
     },
   ),

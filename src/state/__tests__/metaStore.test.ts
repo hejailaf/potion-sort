@@ -129,6 +129,37 @@ describe('metaStore', () => {
     expect(useMetaStore.getState().refillLives()).toBe(false); // already full
   });
 
+  it('grantLife adds one life below max, keeps the anchor, and refuses at max', () => {
+    expect(useMetaStore.getState().grantLife()).toBe(false); // already full
+    const anchor = Date.now();
+    useMetaStore.setState({ lives: 2, lastLifeAt: anchor });
+    expect(useMetaStore.getState().grantLife()).toBe(true);
+    expect(useMetaStore.getState().lives).toBe(3);
+    expect(useMetaStore.getState().lastLifeAt).toBe(anchor); // countdown unchanged
+    useMetaStore.setState({ lives: MAX_LIVES - 1, lastLifeAt: anchor });
+    expect(useMetaStore.getState().grantLife()).toBe(true);
+    expect(useMetaStore.getState().lives).toBe(MAX_LIVES);
+    expect(useMetaStore.getState().lastLifeAt).toBeNull(); // full again
+  });
+
+  it('grantBooster adds a free charge and addCoins queues the celebration', () => {
+    useMetaStore.getState().grantBooster('shuffle');
+    expect(useMetaStore.getState().boosters.shuffle).toBe(4);
+    useMetaStore.getState().addCoins(1200);
+    expect(useMetaStore.getState().coins).toBe(1200);
+    expect(useMetaStore.getState().pendingCoinReward).toBe(1200);
+  });
+
+  it('markReviewPrompted records the highest milestone once', () => {
+    useMetaStore.getState().markReviewPrompted(10);
+    expect(useMetaStore.getState().reviewPromptedFor).toBe(10);
+    useMetaStore.getState().markReviewPrompted(10);
+    useMetaStore.getState().markReviewPrompted(25);
+    expect(useMetaStore.getState().reviewPromptedFor).toBe(25);
+    useMetaStore.getState().markReviewPrompted(10); // lower milestone never regresses
+    expect(useMetaStore.getState().reviewPromptedFor).toBe(25);
+  });
+
   it('persists progression and settings but never the transient celebration', async () => {
     useMetaStore.getState().setSoundEnabled(false);
     useMetaStore.getState().advanceLevel();
