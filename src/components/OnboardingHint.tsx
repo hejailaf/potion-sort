@@ -8,31 +8,58 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { canPour } from '@/engine/rules';
+import { BOTTLE_CAPACITY } from '@/engine/types';
 import { useGameStore } from '@/state/gameStore';
 import { useMetaStore } from '@/state/metaStore';
 import { bottleLayouts } from './bottleLayout';
 
-/** First-play tutorial: bouncing pointer over a pourable bottle, then over a target. */
+/** First-play tutorial: bouncing pointer over a pourable bottle, then over a target.
+ *  On Level 1 it also explains *why* a pour was rejected the first few times (R5). */
 export function OnboardingHint() {
   const level = useGameStore((s) => s.level);
   const historyLength = useGameStore((s) => s.history.length);
   const selectedId = useGameStore((s) => s.selectedId);
   const bottles = useGameStore((s) => s.bottles);
+  const invalidTapToken = useGameStore((s) => s.invalidTapToken);
+  const invalidBottleId = useGameStore((s) => s.invalidBottleId);
   const onboardingDone = useMetaStore((s) => s.onboardingDone);
   const setOnboardingDone = useMetaStore((s) => s.setOnboardingDone);
   // ponytail: layout registry fills asynchronously after first render; a short
   // poll re-checks until the hint position is known, then stops mattering.
   const [, setTick] = useState(0);
+  const [rule, setRule] = useState<string | null>(null);
 
   useEffect(() => {
     if (onboardingDone || historyLength === 0) return;
     setOnboardingDone(); // first successful pour ends the tutorial forever
   }, [historyLength, onboardingDone, setOnboardingDone]);
 
+  // rule pill after a rejected pour on Level 1: name the reason, then fade
+  useEffect(() => {
+    if (invalidTapToken === 0 || level?.id !== 1) return;
+    const target = bottles.find((b) => b.id === invalidBottleId);
+    setRule(
+      target && target.segments.length >= BOTTLE_CAPACITY
+        ? 'That bottle is full — pour into another!'
+        : 'Colors must match on top to pour!',
+    );
+    const t = setTimeout(() => setRule(null), 2600);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invalidTapToken]);
+
   useEffect(() => {
     const timer = setInterval(() => setTick((t) => t + 1), 300);
     return () => clearInterval(timer);
   }, []);
+
+  if (rule) {
+    return (
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <HintBanner text={rule} />
+      </View>
+    );
+  }
 
   if (onboardingDone || level?.id !== 1 || historyLength > 0) return null;
 
@@ -55,10 +82,16 @@ export function OnboardingHint() {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <Pointer x={layout.x + layout.w / 2} y={layout.y} />
-      <View style={styles.bannerWrap}>
-        <View style={styles.banner}>
-          <Text style={styles.bannerText}>{message}</Text>
-        </View>
+      <HintBanner text={message} />
+    </View>
+  );
+}
+
+function HintBanner({ text }: { text: string }) {
+  return (
+    <View style={styles.bannerWrap}>
+      <View style={styles.banner}>
+        <Text style={styles.bannerText}>{text}</Text>
       </View>
     </View>
   );
@@ -85,7 +118,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
   },
   pointerText: {
-    color: '#FFE9A8',
+    color: '#FFE3A6',
     fontSize: 24,
     fontWeight: '900',
   },
@@ -97,15 +130,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   banner: {
-    backgroundColor: 'rgba(27,30,75,0.92)',
+    backgroundColor: 'rgba(32,15,8,0.88)',
     borderRadius: 999,
     paddingHorizontal: 22,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: 'rgba(255,200,120,0.28)',
   },
   bannerText: {
-    color: '#E8E6FF',
+    color: '#FFEFD9',
     fontSize: 15,
     fontWeight: '600',
   },

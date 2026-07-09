@@ -11,9 +11,9 @@ import Animated, {
 } from 'react-native-reanimated';
 import { mulberry32 } from '@/engine/generator';
 
-const STAR_COUNT = 48;
+const MOTE_COUNT = 36;
 
-interface StarSpec {
+interface MoteSpec {
   id: number;
   left: number;
   top: number;
@@ -24,16 +24,18 @@ interface StarSpec {
   twinkles: boolean;
 }
 
-export function StarryBackground() {
+/** v2 "Candlelit Alchemy" backdrop: warm cocoa lab, amber candle glow above,
+ *  a wisp of violet magic, vignette below, drifting dust motes. */
+export function WorkshopBackground() {
   const { width, height } = useWindowDimensions();
-  const stars = useMemo<StarSpec[]>(() => {
+  const motes = useMemo<MoteSpec[]>(() => {
     const rng = mulberry32(7);
-    return Array.from({ length: STAR_COUNT }, (_, i) => ({
+    return Array.from({ length: MOTE_COUNT }, (_, i) => ({
       id: i,
       left: rng() * width,
       top: rng() * height,
-      size: 1 + rng() * 2.2,
-      base: 0.3 + rng() * 0.6,
+      size: 1 + rng() * 2.4,
+      base: 0.2 + rng() * 0.5,
       period: 1600 + rng() * 2600,
       delay: rng() * 2200,
       twinkles: rng() > 0.4,
@@ -41,41 +43,49 @@ export function StarryBackground() {
   }, [width, height]);
 
   return (
-    <View style={styles.sky} pointerEvents="none">
+    <View style={styles.lab} pointerEvents="none">
       <Canvas style={StyleSheet.absoluteFill}>
-        {/* deep night sky */}
+        {/* cocoa base, warmest in the upper middle */}
         <Rect x={0} y={0} width={width} height={height}>
           <LinearGradient
             start={vec(0, 0)}
             end={vec(0, height)}
-            colors={['#0A0B22', '#141634', '#0C0E2A']}
+            colors={['#341B0F', '#4A2A16', '#200F08']}
           />
         </Rect>
-        {/* soft violet aurora, upper-centre */}
+        {/* amber candle glow, upper-centre */}
         <Rect x={0} y={0} width={width} height={height}>
           <RadialGradient
-            c={vec(width * 0.5, height * 0.26)}
-            r={height * 0.45}
-            colors={['rgba(138,74,230,0.30)', 'rgba(138,74,230,0)']}
+            c={vec(width * 0.5, height * 0.2)}
+            r={height * 0.5}
+            colors={['rgba(255,166,63,0.20)', 'rgba(255,166,63,0)']}
           />
         </Rect>
-        {/* teal wisp, upper-right */}
+        {/* faint violet magic wisp, upper-right */}
         <Rect x={0} y={0} width={width} height={height}>
           <RadialGradient
             c={vec(width * 0.84, height * 0.12)}
             r={height * 0.3}
-            colors={['rgba(47,189,179,0.20)', 'rgba(47,189,179,0)']}
+            colors={['rgba(214,92,255,0.12)', 'rgba(214,92,255,0)']}
+          />
+        </Rect>
+        {/* vignette pooling at the bottom */}
+        <Rect x={0} y={0} width={width} height={height}>
+          <LinearGradient
+            start={vec(0, height * 0.55)}
+            end={vec(0, height)}
+            colors={['rgba(32,15,8,0)', 'rgba(20,8,4,0.55)']}
           />
         </Rect>
       </Canvas>
-      {stars.map((s) => (
-        <Star key={s.id} {...s} />
+      {motes.map((m) => (
+        <Mote key={m.id} {...m} />
       ))}
     </View>
   );
 }
 
-function Star({ left, top, size, base, period, delay, twinkles }: StarSpec) {
+function Mote({ left, top, size, base, period, delay, twinkles }: MoteSpec) {
   const o = useSharedValue(base);
   useEffect(() => {
     if (!twinkles) return;
@@ -95,7 +105,7 @@ function Star({ left, top, size, base, period, delay, twinkles }: StarSpec) {
           width: size,
           height: size,
           borderRadius: size / 2,
-          backgroundColor: '#fff',
+          backgroundColor: '#FFD9A0',
         },
         style,
       ]}
@@ -104,8 +114,8 @@ function Star({ left, top, size, base, period, delay, twinkles }: StarSpec) {
 }
 
 const styles = StyleSheet.create({
-  sky: {
+  lab: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#0C0E2A',
+    backgroundColor: '#200F08',
   },
 });

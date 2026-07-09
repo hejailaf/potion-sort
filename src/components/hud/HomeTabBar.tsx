@@ -1,62 +1,40 @@
 import { useRouter } from 'expo-router';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { presentLeaderboard } from '@/gamecenter';
-import { todayKey, useMetaStore } from '@/state/metaStore';
 import { color, font, shadow } from '@/theme';
 
-// ponytail: a visual bar, not a router Tabs group — Home is the only in-tab screen;
-// Shop is a modal, Ranks is the native GC sheet, Daily routes into the game.
-const SIDE_TABS_LEFT = [
-  { key: 'shop', glyph: '🛒', label: 'Shop' },
-  { key: 'ranks', glyph: '🏆', label: 'Ranks' },
-] as const;
-const SIDE_TABS_RIGHT = [
-  { key: 'daily', glyph: '✦', label: 'Daily' },
-  { key: 'teams', glyph: '👥', label: 'Teams' },
-] as const;
-
-export function HomeTabBar() {
+// ponytail: a visual bar, not a router Tabs group — v2 structure is 3 tabs:
+// Shop (modal), Home, Journey (level map). Ranks lives on the home top bar.
+export function HomeTabBar({ active = 'home' }: { active?: 'home' | 'journey' }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const dailyDone = useMetaStore((s) => s.lastDailyCompleted === todayKey());
 
-  const onPress = (key: string) => {
-    if (key === 'shop') router.push('/shop');
-    else if (key === 'ranks') {
-      if (!presentLeaderboard()) {
-        Alert.alert('Game Center unavailable', 'Sign in to Game Center in Settings to see rankings.');
-      }
-    } else if (key === 'daily') {
-      if (dailyDone) Alert.alert('Daily complete!', 'Come back tomorrow for a new potion puzzle.');
-      else router.push('/game?daily=1');
-    } else if (key === 'teams') {
-      Alert.alert('Coming soon', 'Teams unlocks in a future update.');
-    }
+  const goHome = () => {
+    if (active !== 'home') router.replace('/');
   };
-
-  const renderTab = (tab: { key: string; glyph: string; label: string }) => {
-    const locked = tab.key === 'teams';
-    const dimmed = locked || (tab.key === 'daily' && dailyDone);
-    return (
-      <Pressable key={tab.key} style={styles.tab} onPress={() => onPress(tab.key)} hitSlop={6}>
-        <Text style={[styles.glyph, dimmed && styles.lockedText]}>{tab.key === 'daily' && dailyDone ? '✓' : tab.glyph}</Text>
-        <Text style={[styles.label, dimmed && styles.lockedText]}>{locked ? `🔒 ${tab.label}` : tab.label}</Text>
-      </Pressable>
-    );
+  const goJourney = () => {
+    if (active !== 'journey') router.replace('/journey');
   };
 
   return (
     <View style={[styles.bar, { paddingBottom: insets.bottom + 6 }]}>
-      {SIDE_TABS_LEFT.map(renderTab)}
-      {/* elevated active Home slot */}
-      <View style={styles.tab}>
-        <View style={[styles.homeBadge, shadow.button]}>
-          <Text style={styles.homeGlyph}>⌂</Text>
+      <Pressable style={styles.tab} onPress={() => router.push('/shop')} hitSlop={6}>
+        <Text style={styles.glyph}>🛒</Text>
+        <Text style={styles.label}>Shop</Text>
+      </Pressable>
+
+      {/* elevated brass Home button */}
+      <Pressable style={styles.tab} onPress={goHome} hitSlop={6}>
+        <View style={[styles.homeBadge, shadow.button, active !== 'home' && styles.homeBadgeIdle]}>
+          <Text style={styles.homeGlyph}>⚗️</Text>
         </View>
-        <Text style={styles.homeLabel}>Home</Text>
-      </View>
-      {SIDE_TABS_RIGHT.map(renderTab)}
+        <Text style={[styles.homeLabel, active !== 'home' && styles.labelIdle]}>Home</Text>
+      </Pressable>
+
+      <Pressable style={styles.tab} onPress={goJourney} hitSlop={6}>
+        <Text style={[styles.glyph, active === 'journey' && styles.glyphActive]}>🗺️</Text>
+        <Text style={[styles.label, active === 'journey' && styles.labelActive]}>Journey</Text>
+      </Pressable>
     </View>
   );
 }
@@ -75,35 +53,44 @@ const styles = StyleSheet.create({
   tab: {
     alignItems: 'center',
     gap: 2,
-    minWidth: 60,
+    minWidth: 72,
   },
   glyph: {
     color: color.text,
-    fontSize: 21,
+    fontSize: 22,
+    opacity: 0.85,
+  },
+  glyphActive: {
+    opacity: 1,
   },
   label: {
-    color: color.text,
+    color: color.textDim,
     fontFamily: font.semibold,
     fontSize: 11,
   },
-  lockedText: {
-    color: color.textLocked,
+  labelActive: {
+    color: color.goldText,
+  },
+  labelIdle: {
+    color: color.textDim,
   },
   homeBadge: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    marginTop: -26,
+    width: 66,
+    height: 66,
+    borderRadius: 33,
+    marginTop: -30,
     backgroundColor: color.gold,
     borderWidth: 3,
     borderColor: color.goldRimBottom,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  homeBadgeIdle: {
+    backgroundColor: color.panelLight,
+    borderColor: color.panelBorder,
+  },
   homeGlyph: {
-    color: color.panelDeep,
-    fontSize: 26,
-    fontWeight: '800',
+    fontSize: 30,
   },
   homeLabel: {
     color: color.goldText,

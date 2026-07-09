@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, {
   interpolate,
@@ -15,6 +15,7 @@ import { track } from '@/analytics';
 import { ACH, reportAchievement, submitHighestLevel } from '@/gamecenter';
 import { syncNotifications } from '@/notifications';
 import { GameButton } from '@/components/ui/GameButton';
+import { isBottleComplete } from '@/engine/rules';
 import { useGameStore } from '@/state/gameStore';
 import {
   BoosterKind,
@@ -44,19 +45,39 @@ export function WinOverlay() {
 function WinContent() {
   const router = useRouter();
   const daily = useGameStore((s) => s.mode === 'daily');
+  const potions = useGameStore((s) => s.bottles.filter(isBottleComplete).length);
   const advanceLevel = useMetaStore((s) => s.advanceLevel);
   const completeDaily = useMetaStore((s) => s.completeDaily);
   const currentLevel = useMetaStore((s) => s.currentLevel);
   // same tables advanceLevel/completeDaily apply
   const drop = daily ? dailyBoosterKind() : boosterDropForLevel(currentLevel);
+  const reward = daily ? DAILY_REWARD_COINS : WIN_REWARD_COINS;
+  const [shownReward, setShownReward] = useState(0);
   const continued = useRef(false);
   const dim = useSharedValue(0);
   const card = useSharedValue(0);
 
   useEffect(() => {
     dim.value = withTiming(0.7, { duration: 400 });
-    card.value = withDelay(600, withSpring(1, { damping: 12, stiffness: 160 }));
+    card.value = withDelay(500, withSpring(1, { damping: 12, stiffness: 160 }));
   }, [dim, card]);
+
+  // count the reward up once the card has sprung in
+  useEffect(() => {
+    let iv: ReturnType<typeof setInterval> | undefined;
+    const t0 = setTimeout(() => {
+      let i = 0;
+      iv = setInterval(() => {
+        i++;
+        setShownReward(Math.min(reward, Math.round((reward * i) / 18)));
+        if (i >= 18) clearInterval(iv);
+      }, 26);
+    }, 700);
+    return () => {
+      clearTimeout(t0);
+      clearInterval(iv);
+    };
+  }, [reward]);
 
   const dimStyle = useAnimatedStyle(() => ({ opacity: dim.value }));
   const cardStyle = useAnimatedStyle(() => ({
@@ -112,9 +133,10 @@ function WinContent() {
             <Text style={styles.plateText}>{daily ? 'Daily Done!' : 'Perfect!'}</Text>
           </View>
           <View style={styles.cream}>
+            <Text style={styles.brewed}>🧪 {potions} {potions === 1 ? 'potion' : 'potions'} brewed</Text>
             <View style={styles.rewardRow}>
               <View style={styles.coin} />
-              <Text style={styles.reward}>+{daily ? DAILY_REWARD_COINS : WIN_REWARD_COINS}</Text>
+              <Text style={styles.reward}>+{shownReward}</Text>
             </View>
             {drop !== null && <Text style={styles.drop}>Bonus: +1 {DROP_LABELS[drop]}</Text>}
           </View>
@@ -128,7 +150,7 @@ function WinContent() {
 const styles = StyleSheet.create({
   dim: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#05061A',
+    backgroundColor: '#140804',
   },
   center: {
     ...StyleSheet.absoluteFillObject,
@@ -172,6 +194,11 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'center',
     gap: 6,
+  },
+  brewed: {
+    color: '#8A6B45',
+    fontFamily: font.body,
+    fontSize: 14,
   },
   rewardRow: {
     flexDirection: 'row',

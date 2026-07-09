@@ -6,7 +6,7 @@ import Purchases, { PurchasesPackage } from 'react-native-purchases';
 import { track } from '@/analytics';
 import { CoinFly } from '@/components/effects/CoinFly';
 import { CoinCounter } from '@/components/hud/CoinCounter';
-import { StarryBackground } from '@/components/StarryBackground';
+import { WorkshopBackground } from '@/components/WorkshopBackground';
 import { IconButton } from '@/components/ui/IconButton';
 import { useMetaStore } from '@/state/metaStore';
 import { color, font, radius, shadow } from '@/theme';
@@ -79,7 +79,7 @@ export default function ShopScreen() {
 
   return (
     <View style={styles.container}>
-      <StarryBackground />
+      <WorkshopBackground />
       <SafeAreaView style={styles.content}>
         <View style={styles.topBar}>
           <CoinCounter />
@@ -108,7 +108,7 @@ export default function ShopScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0C0E2A',
+    backgroundColor: '#200F08',
   },
   content: {
     flex: 1,

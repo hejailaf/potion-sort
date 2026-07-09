@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
     backgroundColor: color.panelLight,
     borderRadius: radius.pill,
     borderWidth: 1.5,
-    borderColor: color.panelBorder,
+    borderColor: color.goldRimBottom,
     paddingHorizontal: 16,
     height: 38,
     justifyContent: 'center',

@@ -88,8 +88,8 @@ const styles = StyleSheet.create({
     fontSize: 48,
   },
   message: {
-    fontFamily: font.medium,
-    fontSize: 16,
+    fontFamily: font.body,
+    fontSize: 15,
     color: color.brownText,
     textAlign: 'center',
   },

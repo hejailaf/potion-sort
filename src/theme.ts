@@ -1,79 +1,85 @@
-/** Design tokens for the game chrome — "a folded piece of the night sky given a gold trim".
- *  Panels tune the reference's grape-purple toward our indigo; gold stays gold. */
+/** Design tokens for the game chrome — v2 "Candlelit Alchemy":
+ *  a warm alchemist's workshop of mahogany wood, parchment insets, and brass trim.
+ *  Values lifted from the design system's tokens/v2.css (--v2-*). */
 
 export const color = {
-  // panels
-  panel: '#241B4E',
-  panelDeep: '#1B1440',
-  panelLight: '#332762',
-  panelBorder: 'rgba(168,140,255,0.18)',
-  // gold
-  goldRimTop: '#FFE9A8',
-  goldRimBottom: '#C9A227',
-  gold: '#F2D43D',
-  goldText: '#FFE9A8',
-  // cream inset (modal illustration card)
-  cream: '#FBF3DD',
-  creamEdge: '#E9D9AE',
-  brownText: '#5B3D22',
-  // text
-  text: '#E8E6FF',
-  textDim: 'rgba(232,230,255,0.7)',
-  textLocked: 'rgba(232,230,255,0.4)',
+  // panels (mahogany wood chrome)
+  panel: '#57301F',
+  panelDeep: '#43241A',
+  panelLight: '#6E4128',
+  panelBorder: 'rgba(255,200,120,0.28)',
+  // brass (was gold)
+  goldRimTop: '#FFE3A6',
+  goldRimBottom: '#C07F1C',
+  gold: '#F5B841',
+  goldText: '#FFE3A6',
+  // parchment inset (modal illustration card)
+  cream: '#FFF1D6',
+  creamEdge: '#E0BE85',
+  brownText: '#57351A',
+  // text on dark chrome
+  text: '#FFEFD9',
+  textDim: 'rgba(255,239,217,0.65)',
+  textLocked: 'rgba(255,239,217,0.40)',
+  // dark translucent HUD pills
+  pillDark: 'rgba(32,15,8,0.55)',
   // overlays
-  dim: 'rgba(5,6,26,0.72)',
+  dim: 'rgba(20,8,4,0.72)',
 } as const;
 
-export type ButtonVariant = 'green' | 'red' | 'violet';
+export type ButtonVariant = 'green' | 'red' | 'violet' | 'brass';
 
-/** fill = body, top = highlight band, rim = border + 3D bottom edge */
-export const button: Record<ButtonVariant, { fill: string; top: string; rim: string }> = {
-  green: { fill: '#4FB93F', top: '#7CE06C', rim: '#2A7A21' },
-  red: { fill: '#E5533F', top: '#FF7A6B', rim: '#A32516' },
-  violet: { fill: '#8A4AE6', top: '#A879F5', rim: '#5E2FA8' },
+/** fill = body, top = highlight band, rim = border + 3D bottom edge, text = label */
+export const button: Record<ButtonVariant, { fill: string; top: string; rim: string; text: string }> = {
+  green: { fill: '#56BE3E', top: '#93E26E', rim: '#2F7D22', text: '#FFFFFF' },
+  red: { fill: '#E85742', top: '#FF9C82', rim: '#A03325', text: '#FFFFFF' },
+  violet: { fill: '#9C5CE8', top: '#C9A2F6', rim: '#6C35AC', text: '#FFFFFF' },
+  brass: { fill: '#F5B841', top: '#FFE3A6', rim: '#C07F1C', text: '#57351A' },
 };
 
 export const radius = {
   pill: 999,
-  panel: 28,
-  card: 18,
+  panel: 30,
+  card: 20,
   chip: 16,
   small: 12,
 } as const;
 
 export const font = {
-  medium: 'Fredoka_500Medium',
-  semibold: 'Fredoka_600SemiBold',
-  bold: 'Fredoka_700Bold',
+  medium: 'Baloo2_500Medium',
+  semibold: 'Baloo2_600SemiBold',
+  bold: 'Baloo2_700Bold',
+  display: 'Baloo2_800ExtraBold',
+  body: 'Nunito_700Bold',
 } as const;
 
 export const shadow = {
   chip: {
-    shadowColor: '#000',
+    shadowColor: '#190803',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.35,
     shadowRadius: 4,
     elevation: 3,
   },
   button: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
+    shadowColor: '#190803',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.4,
+    shadowRadius: 7,
     elevation: 6,
   },
   panel: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
+    shadowColor: '#0F0502',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.6,
+    shadowRadius: 22,
     elevation: 16,
   },
 } as const;
 
 /** heavy white label look on chunky buttons */
 export const labelShadow = {
-  textShadowColor: 'rgba(0,0,0,0.35)',
+  textShadowColor: 'rgba(25,8,3,0.35)',
   textShadowOffset: { width: 0, height: 1.5 },
   textShadowRadius: 2,
 } as const;

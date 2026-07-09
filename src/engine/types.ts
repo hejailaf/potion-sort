@@ -8,15 +8,16 @@ export type Color =
   | 'violet'
   | 'rose';
 
+// v2 "Candlelit Alchemy" jewel set (design tokens --v2-liquid-*)
 export const COLOR_HEX: Record<Color, string> = {
-  ruby: '#E64A4A',
-  amber: '#F2913D',
-  gold: '#F2D43D',
-  emerald: '#3DCC5E',
-  teal: '#2FBDB3',
-  sapphire: '#3D6EF2',
-  violet: '#8A4AE6',
-  rose: '#E64A9E',
+  ruby: '#FF4D5E',
+  amber: '#FF9838',
+  gold: '#FFD23F',
+  emerald: '#3FD46A',
+  teal: '#2FD3C4',
+  sapphire: '#4A7DFF',
+  violet: '#A85CFF',
+  rose: '#FF63C1',
 };
 
 /** Distinct symbol per color for the color-blind accessibility mode. */

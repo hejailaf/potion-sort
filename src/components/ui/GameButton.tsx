@@ -11,7 +11,7 @@ interface GameButtonProps {
   style?: ViewStyle;
 }
 
-/** Chunky game button: highlight band on top, dark rim below, sinks 2pt when pressed. */
+/** Chunky tactile game button (v2): top highlight band, deep bottom rim, sinks 4pt when pressed. */
 export function GameButton({ label, onPress, variant = 'violet', big, disabled, style }: GameButtonProps) {
   const c = button[variant];
   return (
@@ -24,16 +24,16 @@ export function GameButton({ label, onPress, variant = 'violet', big, disabled, 
         {
           backgroundColor: c.fill,
           borderColor: c.rim,
-          borderBottomWidth: pressed ? 1 : 4,
-          transform: [{ translateY: pressed ? 2 : 0 }],
-          opacity: disabled ? 0.45 : 1,
+          borderBottomWidth: pressed ? 1 : 5,
+          transform: [{ translateY: pressed ? 4 : 0 }],
+          opacity: disabled ? 0.4 : 1,
         },
         shadow.button,
         style,
       ]}
     >
       <View style={[styles.highlight, { backgroundColor: c.top }]} pointerEvents="none" />
-      <Text style={[styles.label, big && styles.labelBig]}>{label}</Text>
+      <Text style={[styles.label, big && styles.labelBig, { color: c.text }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -66,13 +66,12 @@ const styles = StyleSheet.create({
     borderTopRightRadius: radius.card - 2,
   },
   label: {
-    fontFamily: font.semibold,
+    fontFamily: font.bold,
     fontSize: 18,
-    color: '#FFFFFF',
     ...labelShadow,
   },
   labelBig: {
-    fontFamily: font.bold,
+    fontFamily: font.display,
     fontSize: 22,
   },
 });

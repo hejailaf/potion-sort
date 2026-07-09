@@ -8,7 +8,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-const COLORS = ['#FFE9A8', '#FFFFFF', '#C9B7FF'];
+const COLORS = ['#FFE3A6', '#FFF6E5', '#FFC46B'];
 
 interface SparkleBurstProps {
   /** burst origin in window coordinates (the bottle mouth) */
