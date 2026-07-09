@@ -36,7 +36,7 @@ already covers every build artifact (/ios, /android, .expo/, dist/, web-build/, 
 | CoinCounter.tsx, LivesPill.tsx | Were still painting the **v1** green (#4FB93F/#2A7A21) — missed in the v2 reskin. Now `theme.button.green` (#56BE3E/#2F7D22). **Approved visible shade change.** |
 | GameModal.tsx | Same story for red: #D93D2B/#A32516 → `theme.button.red` (#E85742/#A03325). **Approved visible shade change.** |
 | OnboardingHint.tsx, BoosterBar.tsx, LevelPill.tsx | Duplicated 2600ms / 400ms literals → `theme.timing` tokens. |
-| .design-sync/ (conventions.md, fonts.css, fonts/) | Docs described the retired v1 indigo palette + Fredoka fonts. Synced to v2 "Candlelit Alchemy" (source of truth: src/theme.ts) and Baloo2/Nunito TTFs copied from the installed `@expo-google-fonts/*` packages. |
+| .design-sync/ (conventions.md, fonts.css, fonts/) | Docs described the retired v1 indigo palette + Fredoka fonts — a family the synced components never even request (they ask for Baloo2/Nunito families via theme tokens, so browser previews fell back to system fonts). Synced to v2 "Candlelit Alchemy" (source of truth: src/theme.ts) and swapped in Baloo2_700Bold/800ExtraBold + Nunito_700Bold TTFs from the installed `@expo-google-fonts/*` packages. Note: these TTFs are ~970KB vs Fredoka's 156KB (Google's full files, not subsets) — acceptable for correct tooling previews; subset later only if repo weight ever matters. |
 
 ## Deliberately kept (uncertain or wrong-fit items — do not "clean up" later without reading this)
 

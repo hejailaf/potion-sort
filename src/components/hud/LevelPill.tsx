@@ -7,7 +7,7 @@ import { GameModal } from '@/components/ui/GameModal';
 import { IconButton } from '@/components/ui/IconButton';
 import { useGameStore } from '@/state/gameStore';
 import { LIFE_REGEN_MS, LIVES_REFILL_COST, useMetaStore } from '@/state/metaStore';
-import { color, font, radius, shadow } from '@/theme';
+import { color, font, radius, shadow, timing } from '@/theme';
 
 interface LevelPillProps {
   onOpenSettings: () => void;
@@ -51,7 +51,7 @@ export function LevelPill({ onOpenSettings }: LevelPillProps) {
   const adForLife = () => {
     setModal(null);
     // let the modal dismiss before the fullscreen ad presents its own controller
-    setTimeout(() => watchAdForLife(restart), 400);
+    setTimeout(() => watchAdForLife(restart), timing.adWatchDelay);
   };
 
   const refill = () => {

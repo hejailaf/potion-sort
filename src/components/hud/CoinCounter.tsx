@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useMetaStore } from '@/state/metaStore';
-import { color, font, radius, shadow } from '@/theme';
+import { button, color, font, radius, shadow } from '@/theme';
 
 /** Window-coordinate center of the coin pill — CoinFly's destination. */
 export const coinCounterLayout: { current: { x: number; y: number } | null } = { current: null };
@@ -72,9 +72,9 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#4FB93F',
+    backgroundColor: button.green.fill,
     borderWidth: 1.5,
-    borderColor: '#2A7A21',
+    borderColor: button.green.rim,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: -10,

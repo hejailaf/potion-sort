@@ -37,6 +37,14 @@ export const button: Record<ButtonVariant, { fill: string; top: string; rim: str
   brass: { fill: '#F5B841', top: '#FFE3A6', rim: '#C07F1C', text: '#57351A' },
 };
 
+/** shared UX delays (ms). Phase 4 (UI overhaul) grows this into a full motion scale. */
+export const timing = {
+  /** hint pill / glow auto-dismiss */
+  hintAutoDismiss: 2600,
+  /** gap between dismissing a modal and presenting a fullscreen ad */
+  adWatchDelay: 400,
+} as const;
+
 export const radius = {
   pill: 999,
   panel: 30,

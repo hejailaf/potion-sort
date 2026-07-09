@@ -11,6 +11,7 @@ import { canPour } from '@/engine/rules';
 import { BOTTLE_CAPACITY } from '@/engine/types';
 import { useGameStore } from '@/state/gameStore';
 import { useMetaStore } from '@/state/metaStore';
+import { timing } from '@/theme';
 import { bottleLayouts } from './bottleLayout';
 
 /** First-play tutorial: bouncing pointer over a pourable bottle, then over a target.
@@ -43,7 +44,7 @@ export function OnboardingHint() {
         ? 'That bottle is full — pour into another!'
         : 'Colors must match on top to pour!',
     );
-    const t = setTimeout(() => setRule(null), 2600);
+    const t = setTimeout(() => setRule(null), timing.hintAutoDismiss);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invalidTapToken]);

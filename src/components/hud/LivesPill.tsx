@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { GameButton } from '@/components/ui/GameButton';
 import { GameModal } from '@/components/ui/GameModal';
 import { LIFE_REGEN_MS, LIVES_REFILL_COST, MAX_LIVES, useMetaStore } from '@/state/metaStore';
-import { color, font, radius, shadow } from '@/theme';
+import { button, color, font, radius, shadow } from '@/theme';
 
 /** Hearts n/5 with a mm:ss countdown; "+" offers the coin refill when below max. */
 export function LivesPill() {
@@ -115,9 +115,9 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#4FB93F',
+    backgroundColor: button.green.fill,
     borderWidth: 1.5,
-    borderColor: '#2A7A21',
+    borderColor: button.green.rim,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: -10,

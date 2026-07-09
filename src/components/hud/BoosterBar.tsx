@@ -8,7 +8,7 @@ import { hintMove } from '@/engine/solver';
 import { useGameStore } from '@/state/gameStore';
 import { BOOSTER_COST, BoosterKind, HINT_COST, useMetaStore } from '@/state/metaStore';
 import { hapticError, playSfx } from '@/sound';
-import { color, font, radius, shadow } from '@/theme';
+import { button, color, font, radius, shadow, timing } from '@/theme';
 
 const BOOSTER_META: Record<BoosterKind, { glyph: string; label: string }> = {
   undo: { glyph: '↩', label: 'Undo' },
@@ -70,7 +70,7 @@ export function BoosterBar() {
     }
     track('hint_used', { free: free ? 1 : 0 });
     g.showHint(move);
-    setTimeout(() => useGameStore.getState().clearHint(), 2600);
+    setTimeout(() => useGameStore.getState().clearHint(), timing.hintAutoDismiss);
   };
 
   const buyWithCoins = () => {
@@ -89,7 +89,7 @@ export function BoosterBar() {
     const { kind, action } = buying;
     setBuying(null);
     // let the modal dismiss before the fullscreen ad presents
-    setTimeout(() => watchAdForBooster(kind, action), 400);
+    setTimeout(() => watchAdForBooster(kind, action), timing.adWatchDelay);
   };
 
   const undoDimmed = won || historyLength === 0;
@@ -194,15 +194,15 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: radius.chip,
-    backgroundColor: '#9C5CE8',
+    backgroundColor: button.violet.fill,
     borderWidth: 1.5,
-    borderColor: '#6C35AC',
+    borderColor: button.violet.rim,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
   },
   tilePressed: {
-    backgroundColor: '#6C35AC',
+    backgroundColor: button.violet.rim,
     transform: [{ scale: 0.95 }],
   },
   tileDisabled: {

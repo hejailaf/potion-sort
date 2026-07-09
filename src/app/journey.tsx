@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { HomeTabBar } from '@/components/hud/HomeTabBar';
 import { WorkshopBackground } from '@/components/WorkshopBackground';
 import { useMetaStore } from '@/state/metaStore';
-import { color, font, labelShadow, radius, shadow } from '@/theme';
+import { button, color, font, labelShadow, radius, shadow } from '@/theme';
 
 const LOCKED_AHEAD = 3;
 /** winding path: horizontal offset per node, cycled */
@@ -98,9 +98,9 @@ const styles = StyleSheet.create({
     width: 74,
     height: 74,
     borderRadius: 37,
-    backgroundColor: '#56BE3E',
+    backgroundColor: button.green.fill,
     borderWidth: 3,
-    borderColor: '#2F7D22',
+    borderColor: button.green.rim,
   },
   nodePressed: {
     transform: [{ scale: 0.95 }],
@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: -2,
     top: -4,
-    color: '#2F7D22',
+    color: button.green.rim,
     fontSize: 15,
     fontWeight: '900',
     backgroundColor: color.cream,

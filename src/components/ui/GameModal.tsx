@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { color, font, radius, shadow } from '@/theme';
+import { button, color, font, radius, shadow } from '@/theme';
 
 interface GameModalProps {
   visible: boolean;
@@ -100,9 +100,9 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#D93D2B',
+    backgroundColor: button.red.fill,
     borderWidth: 2,
-    borderColor: '#A32516',
+    borderColor: button.red.rim,
     alignItems: 'center',
     justifyContent: 'center',
     ...shadow.chip,

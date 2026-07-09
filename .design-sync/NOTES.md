@@ -8,7 +8,7 @@ Potion Sort is an **Expo React Native game**, not a web component library. There
 
 - The converter's `--entry` is a **pre-built react-native-web bundle**: `.design-sync/build-web-dist.mjs` (esbuild) aliases `react-native` → `react-native-web`, resolves `@/` via tsconfig, and keeps **react/react-dom external** so the converter's `_vendor` provides ONE React instance (RNW's `Pressable` uses hooks — two React copies throw "Invalid hook call"). Output: `.design-sync/.cache/web-dist/index.js` (gitignored). `cfg.buildCmd` runs it.
 - Re-sync order: `node .design-sync/build-web-dist.mjs` **then** the converter `--entry ./.design-sync/.cache/web-dist/index.js`.
-- Fonts: Fredoka ttf (`.design-sync/fonts/` + `.design-sync/fonts.css`) via `cfg.extraFonts`. Components reference `Fredoka_*` family names at runtime; without the `@font-face` they fall back to system font.
+- Fonts: Baloo2/Nunito ttf (`.design-sync/fonts/` + `.design-sync/fonts.css`) via `cfg.extraFonts`. Components reference `Baloo2_700Bold` / `Baloo2_800ExtraBold` / `Nunito_700Bold` family names at runtime (via `src/theme.ts` font tokens); without the `@font-face` they fall back to system font.
 - Styling is `[CSS_RUNTIME]` (RNW injects styles at runtime) — expected, non-blocking. `_ds_bundle.css` is a stub; the bundle is self-styling.
 
 ## The RNW rootEmpty fix (important — don't remove)
