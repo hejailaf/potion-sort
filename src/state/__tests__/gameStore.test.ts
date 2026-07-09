@@ -1,6 +1,6 @@
 import { createBottles } from '../../engine/generator';
 import { LevelDef } from '../../engine/types';
-import { useGameStore } from '../gameStore';
+import { initialHidden, useGameStore } from '../gameStore';
 import { MAX_LIVES, useMetaStore } from '../metaStore';
 
 const initialState = useGameStore.getState();
@@ -391,5 +391,111 @@ describe('gameStore', () => {
     // further taps are ignored once won
     tap('b0');
     expect(useGameStore.getState().selectedId).toBeNull();
+  });
+});
+
+describe('gameStore modifiers', () => {
+  /** b1's ruby corks b0; b2 is veiled (gold×3); b3 empty. */
+  const veiledLevel: LevelDef = {
+    id: 25,
+    seed: 0,
+    bottles: [['ruby', 'ruby', 'ruby'], ['ruby', 'gold'], ['gold', 'gold', 'gold']],
+    emptyBottles: 1,
+    modifiers: [{ type: 'veiled', bottles: [2] }],
+  };
+
+  /** b2 is chained with 2 locks. */
+  const chainedLevel: LevelDef = {
+    id: 62,
+    seed: 0,
+    bottles: [['gold', 'ruby', 'ruby'], ['ruby', 'gold'], ['gold']],
+    emptyBottles: 1,
+    modifiers: [{ type: 'chained', bottles: [{ index: 2, locks: 2 }] }],
+  };
+
+  /** b0 is a mystery bottle. Colors sum to multiples of 4 so shuffle stays solvable. */
+  const mysteryLevel: LevelDef = {
+    id: 45,
+    seed: 0,
+    bottles: [['ruby', 'ruby', 'gold', 'gold'], ['gold', 'ruby', 'ruby'], ['gold']],
+    emptyBottles: 2,
+    modifiers: [{ type: 'mystery', bottles: [0] }],
+  };
+
+  const loadWithHidden = (def: LevelDef) =>
+    useGameStore.setState({ level: def, bottles: createBottles(def), hiddenCounts: initialHidden(def) });
+
+  it('a veiled bottle cannot be picked up — it shakes instead', () => {
+    load(veiledLevel);
+    const before = useGameStore.getState().invalidTapToken;
+    tap('b2');
+    expect(useGameStore.getState().selectedId).toBeNull();
+    expect(useGameStore.getState().invalidTapToken).toBe(before + 1);
+    expect(useGameStore.getState().invalidBottleId).toBe('b2');
+  });
+
+  it('pouring into a veiled bottle is rejected like any illegal pour', () => {
+    load(veiledLevel);
+    tap('b1');
+    const before = useGameStore.getState().invalidTapToken;
+    tap('b2');
+    expect(useGameStore.getState().invalidTapToken).toBe(before + 1);
+    expect(useGameStore.getState().selectedId).toBe('b1'); // source stays selected
+  });
+
+  it('corking a bottle lifts the veil at commit time', () => {
+    load(veiledLevel);
+    pour('b1', 'b3'); // park the gold; no cork, veil stays
+    expect(useGameStore.getState().bottles.find((b) => b.id === 'b2')!.veiled).toBe(true);
+    tap('b1');
+    tap('b0'); // ruby corks b0 — commit time, before any finishPour
+    expect(useGameStore.getState().bottles.find((b) => b.id === 'b2')!.veiled).toBe(false);
+  });
+
+  it('a chained bottle unfreezes after its locks tick down, and undo re-locks it', () => {
+    load(chainedLevel);
+    const before = useGameStore.getState().invalidTapToken;
+    tap('b2'); // locked: shake
+    expect(useGameStore.getState().invalidTapToken).toBe(before + 1);
+
+    pour('b0', 'b3'); // locks 2 → 1
+    expect(useGameStore.getState().bottles.find((b) => b.id === 'b2')!.locks).toBe(1);
+    useGameStore.getState().undoMove(); // re-locks to 2
+    expect(useGameStore.getState().bottles.find((b) => b.id === 'b2')!.locks).toBe(2);
+
+    pour('b0', 'b3'); // 2 → 1
+    pour('b1', 'b0'); // 1 → 0
+    expect(useGameStore.getState().bottles.find((b) => b.id === 'b2')!.locks).toBe(0);
+    tap('b2'); // now a normal bottle
+    expect(useGameStore.getState().selectedId).toBe('b2');
+  });
+
+  it('mystery watermark starts below the top, only ever falls, and undo never re-hides', () => {
+    expect(initialHidden(mysteryLevel)).toEqual({ b0: 3 });
+    loadWithHidden(mysteryLevel);
+    pour('b0', 'b4'); // two golds out: b0 length 4 → 2
+    expect(useGameStore.getState().hiddenCounts.b0).toBe(1);
+    useGameStore.getState().undoMove(); // liquid returns, reveal does not retract
+    expect(useGameStore.getState().bottles.find((b) => b.id === 'b0')!.segments).toHaveLength(4);
+    expect(useGameStore.getState().hiddenCounts.b0).toBe(1);
+  });
+
+  it('shuffle re-hides a mystery bottle below its new top', () => {
+    loadWithHidden(mysteryLevel);
+    pour('b0', 'b4'); // golds out → hidden 1
+    pour('b0', 'b3'); // rubies out → b0 empty, hidden 0
+    pour('b3', 'b0'); // rubies back in → length 2, hidden still 0
+    expect(useGameStore.getState().hiddenCounts.b0).toBe(0);
+    useGameStore.getState().shuffleBoard();
+    expect(useGameStore.getState().history).toEqual([]); // shuffle happened
+    // fill count preserved (2), below-top hidden again
+    expect(useGameStore.getState().hiddenCounts.b0).toBe(1);
+  });
+
+  it('a pre-v1.3 save shape (no modifier fields, no hiddenCounts) still plays', () => {
+    load(tinyLevel); // plain bottles, hiddenCounts untouched at {}
+    pour('b0', 'b2');
+    expect(useGameStore.getState().hiddenCounts).toEqual({});
+    expect(useGameStore.getState().history).toHaveLength(1);
   });
 });

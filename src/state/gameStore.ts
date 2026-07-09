@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { createBottles, generateLevel, shuffleBottles } from '../engine/generator';
-import { applyPour, isBottleComplete, isWin } from '../engine/rules';
+import { applyPour, isBottleComplete, isWin, revealNextVeil } from '../engine/rules';
 import { Bottle, GameStatus, LevelDef, Move } from '../engine/types';
 import { popMove, pushMove, revertMove } from '../engine/undo';
 import { todayKey, useMetaStore } from './metaStore';
@@ -22,6 +22,36 @@ export interface ActivePour {
 }
 
 let pourSeq = 0;
+
+/** Mystery watermark: bottle id → how many bottom segments are still unrevealed.
+ *  Monotone — lowering only. Display-only state; the engine stays omniscient. */
+export function settleHidden(
+  hidden: Record<string, number>,
+  bottles: Bottle[],
+): Record<string, number> {
+  let changed = false;
+  const next = { ...hidden };
+  for (const b of bottles) {
+    const prev = next[b.id];
+    if (prev === undefined) continue;
+    const cap = Math.max(0, b.segments.length - 1);
+    if (cap < prev) {
+      next[b.id] = cap;
+      changed = true;
+    }
+  }
+  return changed ? next : hidden;
+}
+
+/** initial watermark: every below-top segment of a mystery bottle starts hidden */
+export function initialHidden(level: LevelDef): Record<string, number> {
+  const hidden: Record<string, number> = {};
+  for (const m of level.modifiers ?? []) {
+    if (m.type !== 'mystery') continue;
+    for (const i of m.bottles) hidden[`b${i}`] = Math.max(0, level.bottles[i].length - 1);
+  }
+  return hidden;
+}
 
 interface GameState {
   level: LevelDef | null;
@@ -50,6 +80,8 @@ interface GameState {
   hintUsed: boolean;
   /** transient: when this board was dealt — feeds the level_win duration metric */
   startedAt: number;
+  /** mystery watermark per bottle id (persisted; empty when the level has no mystery bottles) */
+  hiddenCounts: Record<string, number>;
   loadLevel: (levelNumber: number, seed?: number, mode?: 'normal' | 'daily') => void;
   /** resume the persisted in-progress board when it matches, else deal fresh */
   resumeOrLoad: (levelNumber: number) => void;
@@ -86,12 +118,15 @@ export const useGameStore = create<GameState>()(
   hint: null,
   hintUsed: false,
   startedAt: 0,
+  hiddenCounts: {},
 
   loadLevel: (levelNumber, seed, mode = 'normal') => {
+    // modifiers stay off until the mechanics UI ships (Phase 3 flips this to withModifiers)
     const level = generateLevel(levelNumber, seed);
     set({
       level,
       bottles: createBottles(level),
+      hiddenCounts: initialHidden(level),
       selectedId: null,
       history: [],
       status: 'playing',
@@ -140,6 +175,11 @@ export const useGameStore = create<GameState>()(
 
     if (selectedId === null) {
       if (activePours.some((p) => p.move.to === id)) return; // mid-fill: can't pick up
+      // frozen bottles (veiled / still-chained) can't be picked up — shake, don't select
+      if (tapped.veiled || tapped.locks) {
+        set((s) => ({ invalidTapToken: s.invalidTapToken + 1, invalidBottleId: id }));
+        return;
+      }
       // corked (complete) bottles are done — they can't be picked up again
       if (tapped.segments.length > 0 && !isBottleComplete(tapped)) set({ selectedId: id });
       return;
@@ -156,10 +196,14 @@ export const useGameStore = create<GameState>()(
     }
     const target = result.bottles.find((b) => b.id === id)!;
     const completed = isBottleComplete(target);
-    const won = isWin(result.bottles);
+    // a cork lifts one veil, at commit time like all engine state (UI animates it
+    // off completionToken when the corking pour lands)
+    const committed = completed ? revealNextVeil(result.bottles) : result.bottles;
+    const won = isWin(committed);
     const srcBefore = bottles.find((b) => b.id === selectedId)!;
     set((s) => ({
-      bottles: result.bottles,
+      bottles: committed,
+      hiddenCounts: settleHidden(s.hiddenCounts, committed),
       activePours: [
         ...s.activePours,
         { id: ++pourSeq, move: result.move, srcBefore, tgtBefore: tapped, completes: completed },
@@ -204,7 +248,14 @@ export const useGameStore = create<GameState>()(
     if (activePours.length > 0 || status === 'won' || history.length === 0) return;
     if (!useMetaStore.getState().consumeBooster('undo')) return;
     const { history: rest, move } = popMove(history);
-    set({ bottles: revertMove(bottles, move!), history: rest, selectedId: null });
+    const reverted = revertMove(bottles, move!);
+    // settleHidden is monotone: undo restores liquid but never re-hides a surfaced segment
+    set((s) => ({
+      bottles: reverted,
+      history: rest,
+      selectedId: null,
+      hiddenCounts: settleHidden(s.hiddenCounts, reverted),
+    }));
   },
 
   shuffleBoard: () => {
@@ -218,8 +269,18 @@ export const useGameStore = create<GameState>()(
       return;
     }
     useMetaStore.getState().consumeBooster('shuffle');
+    // re-dealt mystery bottles hide their below-top segments again (fresh mystery)
+    const rehidden = { ...get().hiddenCounts };
+    for (const m of level?.modifiers ?? []) {
+      if (m.type !== 'mystery') continue;
+      for (const i of m.bottles) {
+        const bid = `b${i}`;
+        const len = next.find((x) => x.id === bid)?.segments.length ?? 0;
+        rehidden[bid] = Math.max(0, len - 1);
+      }
+    }
     // history is cleared: pre-shuffle moves can't be replayed against re-dealt bottles
-    set({ bottles: next, history: [], selectedId: null });
+    set({ bottles: next, history: [], selectedId: null, hiddenCounts: rehidden });
   },
 
   addExtraBottle: () => {
@@ -243,6 +304,7 @@ export const useGameStore = create<GameState>()(
         status: s.status,
         mode: s.mode,
         extraBottleUsed: s.extraBottleUsed,
+        hiddenCounts: s.hiddenCounts,
       }),
     },
   ),

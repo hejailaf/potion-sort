@@ -1,6 +1,7 @@
 import { ALL_COLORS, Bottle, BOTTLE_CAPACITY, Color, LevelDef } from './types';
 import { isBottleComplete } from './rules';
 import { solve } from './solver';
+import { modifiersFor } from './progression';
 
 /** Tiny deterministic PRNG (mulberry32) — JS has no seeded random built in. */
 export function mulberry32(seed: number): () => number {
@@ -66,9 +67,15 @@ function shuffleInPlace<T>(items: T[], rng: () => number): T[] {
   return items;
 }
 
-/** Materialize a LevelDef into the runtime bottle state (filled bottles, then empties). */
+/** Materialize a LevelDef into the runtime bottle state (filled bottles, then empties).
+ *  Modifiers land on the filled bottles here; mystery is display-only (the store
+ *  derives its hidden watermark from the LevelDef, not from bottle fields). */
 export function createBottles(def: LevelDef): Bottle[] {
-  const filled = def.bottles.map((segments, i) => ({ id: `b${i}`, segments: [...segments] }));
+  const filled: Bottle[] = def.bottles.map((segments, i) => ({ id: `b${i}`, segments: [...segments] }));
+  for (const m of def.modifiers ?? []) {
+    if (m.type === 'veiled') for (const i of m.bottles) filled[i].veiled = true;
+    if (m.type === 'chained') for (const { index, locks } of m.bottles) filled[index].locks = locks;
+  }
   const empties = Array.from({ length: def.emptyBottles }, (_, i) => ({
     id: `b${def.bottles.length + i}`,
     segments: [] as Color[],
@@ -82,10 +89,16 @@ const MAX_ATTEMPTS = 200;
  * Deterministic, guaranteed-solvable level for (levelNumber, seed).
  * Deals a shuffled segment pool into bottles and retries (advancing the same RNG)
  * until the solver confirms solvability and no bottle starts already complete.
+ *
+ * `withModifiers` attaches the mechanic for this level (progression.ts) and verifies
+ * solvability WITH it active. Off by default — the app flips its one call site when
+ * the mechanics UI ships (Phase 3). Modifiers draw from a separate seed-derived RNG
+ * stream so the base deal stays byte-identical with or without them.
  */
 export function generateLevel(
   levelNumber: number,
   seed: number = CURATED_SEEDS[levelNumber] ?? levelNumber,
+  withModifiers = false,
 ): LevelDef {
   const tuned = HAND_TUNED[levelNumber];
   if (tuned) return tuned;
@@ -93,6 +106,10 @@ export function generateLevel(
   const { filled, colors, empty } = difficultyFor(levelNumber);
   const rng = mulberry32(seed);
   const palette = shuffleInPlace([...ALL_COLORS], rng).slice(0, colors);
+
+  const modifiers = withModifiers
+    ? modifiersFor(levelNumber, filled, mulberry32(seed ^ 0x9e3779b9))
+    : [];
 
   const pool: Color[] = [];
   for (let k = 0; k < filled; k++) {
@@ -108,6 +125,7 @@ export function generateLevel(
     if (bottles.some((segments) => isBottleComplete({ id: '', segments }))) continue;
 
     const def: LevelDef = { id: levelNumber, seed, bottles, emptyBottles: empty };
+    if (modifiers.length > 0) def.modifiers = modifiers;
     if (solve(createBottles(def)).solvable) return def;
   }
   throw new Error(`generateLevel: no solvable deal in ${MAX_ATTEMPTS} attempts (level ${levelNumber}, seed ${seed})`);
@@ -124,7 +142,10 @@ const SHUFFLE_ATTEMPTS = 60;
  */
 export function shuffleBottles(bottles: Bottle[], seed: number): Bottle[] | null {
   const rng = mulberry32(seed);
-  const movable = bottles.filter((b) => b.segments.length > 0 && !isBottleComplete(b));
+  // veiled / still-chained bottles are frozen: their liquid never joins the re-deal
+  const movable = bottles.filter(
+    (b) => b.segments.length > 0 && !isBottleComplete(b) && !b.veiled && !b.locks,
+  );
   const pool = movable.flatMap((b) => b.segments);
   if (pool.length === 0) return null;
 

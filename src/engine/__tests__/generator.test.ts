@@ -57,6 +57,68 @@ describe('generateLevel', () => {
   );
 });
 
+describe('generateLevel with modifiers', () => {
+  it('withModifiers=false (and omitted) never attaches modifiers — app path unchanged', () => {
+    for (const level of [10, 25, 45, 60]) {
+      expect(generateLevel(level, 7)).not.toHaveProperty('modifiers');
+      expect(generateLevel(level, 7, false)).toEqual(generateLevel(level, 7));
+    }
+  });
+
+  it('is deterministic for the same (level, seed, withModifiers)', () => {
+    expect(generateLevel(25, 3, true)).toEqual(generateLevel(25, 3, true));
+    expect(generateLevel(62, 5, true)).toEqual(generateLevel(62, 5, true));
+  });
+
+  it('below the first unlock, withModifiers output equals the base level', () => {
+    expect(generateLevel(10, 7, true)).toEqual(generateLevel(10, 7));
+  });
+
+  it('materializes modifier flags onto the right bottles', () => {
+    // find a seed per band that actually drew each mechanic
+    const find = (level: number, type: string) => {
+      for (let seed = 1; seed <= 60; seed++) {
+        const def = generateLevel(level, seed, true);
+        const m = def.modifiers?.[0];
+        if (m?.type === type) return def;
+      }
+      throw new Error(`no ${type} level found at ${level}`);
+    };
+    const veiledDef = find(25, 'veiled');
+    const bottles = createBottles(veiledDef);
+    const veiledIdx = (veiledDef.modifiers![0] as { bottles: number[] }).bottles;
+    for (const i of veiledIdx) expect(bottles[i].veiled).toBe(true);
+    expect(bottles.filter((x) => x.veiled)).toHaveLength(veiledIdx.length);
+
+    const chainedDef = find(62, 'chained');
+    const chainedBottles = createBottles(chainedDef);
+    const spec = (chainedDef.modifiers![0] as { bottles: { index: number; locks: number }[] }).bottles;
+    for (const { index, locks } of spec) expect(chainedBottles[index].locks).toBe(locks);
+
+    // mystery never touches bottle fields — display-only
+    const mysteryDef = find(45, 'mystery');
+    for (const bottle of createBottles(mysteryDef)) {
+      expect(bottle.veiled).toBeUndefined();
+      expect(bottle.locks).toBeUndefined();
+    }
+  });
+
+  // Acceptance (V1.3 brief, Phase 2): solvable modifier levels across 200 random seeds.
+  // generateLevel solver-verifies every accepted deal WITH its modifiers active; one
+  // deep re-solve per band double-checks the createBottles round-trip.
+  it.each([
+    [25, 'veiled band'],
+    [45, 'mystery band'],
+    [62, 'chained band'],
+  ])('level %i (%s): 67 consecutive seeds generate solvable modifier levels', (level) => {
+    for (let seed = 1; seed <= 67; seed++) {
+      const def = generateLevel(level, seed, true);
+      expect(JSON.parse(JSON.stringify(def))).toEqual(def); // serializable, round-trips
+      if (seed === 1) expect(solve(createBottles(def)).solvable).toBe(true);
+    }
+  }, 120_000);
+});
+
 describe('curated early levels and level sweep', () => {
   it('levels 1-10 default seeds ramp smoothly within each difficulty tier', () => {
     const tiers = [
@@ -129,5 +191,22 @@ describe('shuffleBottles', () => {
     expect(shuffleBottles(stuck, 3)).toBeNull();
     // nothing movable at all
     expect(shuffleBottles([b('empty')], 3)).toBeNull();
+  });
+
+  it('never re-deals the liquid of veiled or still-chained bottles', () => {
+    const frozenBoard = [
+      { ...b('v', 'ruby', 'gold'), veiled: true },
+      { ...b('k', 'gold', 'ruby'), locks: 2 },
+      b('a', 'gold', 'teal', 'gold', 'teal'),
+      b('c', 'teal', 'gold'),
+      b('e', 'teal', 'gold'),
+      b('empty'),
+    ];
+    for (let seed = 1; seed <= 5; seed++) {
+      const result = shuffleBottles(frozenBoard, seed);
+      if (result === null) continue;
+      expect(result.find((x) => x.id === 'v')).toEqual(frozenBoard[0]);
+      expect(result.find((x) => x.id === 'k')).toEqual(frozenBoard[1]);
+    }
   });
 });
