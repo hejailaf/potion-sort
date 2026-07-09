@@ -14,7 +14,8 @@ import Animated, {
 import { isBottleComplete } from '@/engine/rules';
 import { Bottle as BottleData, BOTTLE_CAPACITY, COLOR_HEX, COLOR_SYMBOL } from '@/engine/types';
 import { useMetaStore } from '@/state/metaStore';
-import { hapticSelect } from '@/sound';
+import { hapticLight, hapticSelect } from '@/sound';
+import { button, font } from '@/theme';
 import { bottleLayouts, bottleRefs } from './bottleLayout';
 import {
   KICK_DESELECT,
@@ -25,7 +26,17 @@ import {
   SLOSH_SPRING,
   surfaceEdge,
 } from './liquid';
-import { cylinderGradient, GLOW_PAD, HEIGHT_RATIO, rgba, segmentGeometry, vialPaths } from './vial';
+import {
+  bodyTop,
+  cylinderGradient,
+  GLOW_PAD,
+  HEIGHT_RATIO,
+  MYSTERY_GRADIENT,
+  rgba,
+  segmentGeometry,
+  VEIL_GRADIENT,
+  vialPaths,
+} from './vial';
 import { VialCap, VialInside, VialNeck, VialShine } from './VialGlass';
 
 interface BottleProps {
@@ -38,10 +49,12 @@ interface BottleProps {
   shakeToken: number;
   /** the hint booster is pointing at this bottle — pulse a gold ring */
   hinted: boolean;
+  /** mystery watermark: this many bottom segments render as unknown ("?") */
+  hiddenCount: number;
   onTap: (id: string) => void;
 }
 
-export function Bottle({ bottle, width, selected, hidden, shakeToken, hinted, onTap }: BottleProps) {
+export function Bottle({ bottle, width, selected, hidden, shakeToken, hinted, hiddenCount, onTap }: BottleProps) {
   const height = width * HEIGHT_RATIO;
   const ref = useRef<View>(null);
   const lift = useSharedValue(0);
@@ -51,6 +64,15 @@ export function Bottle({ bottle, width, selected, hidden, shakeToken, hinted, on
   /** liquid-surface tilt (rad) — sloshes on lift/shake/pour landing, springs level */
   const theta = useSharedValue(0);
   const wasSelected = useRef(false);
+  /** veil fog opacity — fades out when a cork lifts this bottle's veil */
+  const veilOpacity = useSharedValue(bottle.veiled ? 1 : 0);
+  const wasVeiled = useRef(!!bottle.veiled);
+  /** wax seal (chained) — pops off when the locks tick down to 0 */
+  const locks = bottle.locks ?? 0;
+  const sealScale = useSharedValue(locks > 0 ? 1 : 0);
+  const sealOpacity = useSharedValue(locks > 0 ? 1 : 0);
+  const prevLocks = useRef(locks);
+  const shownLocks = useRef(locks);
 
   // registries: the pour overlay kicks this bottle's liquid when a pour lands
   // on it, and measures its ref fresh when a pour starts
@@ -94,6 +116,33 @@ export function Bottle({ bottle, width, selected, hidden, shakeToken, hinted, on
   }, [shakeToken, shakeX, flash, theta]);
 
   useEffect(() => {
+    const isVeiled = !!bottle.veiled;
+    if (wasVeiled.current === isVeiled) return;
+    if (isVeiled) {
+      veilOpacity.value = 1; // restart re-deals the same ids — snap the veil back on
+    } else {
+      veilOpacity.value = withTiming(0, { duration: 500, easing: Easing.out(Easing.cubic) });
+      hapticLight();
+    }
+    wasVeiled.current = isVeiled;
+  }, [bottle.veiled, veilOpacity]);
+
+  useEffect(() => {
+    const prev = prevLocks.current;
+    if (locks > 0) {
+      shownLocks.current = locks; // keep the last positive label legible during the pop
+      sealScale.value = 1;
+      sealOpacity.value = 1;
+    } else if (prev > 0) {
+      // unsealed: the wax disc pops off
+      sealScale.value = withTiming(1.5, { duration: 320, easing: Easing.out(Easing.cubic) });
+      sealOpacity.value = withTiming(0, { duration: 320 });
+      hapticLight();
+    }
+    prevLocks.current = locks;
+  }, [locks, sealScale, sealOpacity]);
+
+  useEffect(() => {
     glow.value = hinted
       ? withRepeat(
           withSequence(withTiming(0.95, { duration: 500 }), withTiming(0.25, { duration: 500 })),
@@ -108,6 +157,11 @@ export function Bottle({ bottle, width, selected, hidden, shakeToken, hinted, on
   }));
   const flashStyle = useAnimatedStyle(() => ({ opacity: flash.value }));
   const glowStyle = useAnimatedStyle(() => ({ opacity: glow.value }));
+  const veilTextStyle = useAnimatedStyle(() => ({ opacity: veilOpacity.value }));
+  const sealStyle = useAnimatedStyle(() => ({
+    opacity: sealOpacity.value,
+    transform: [{ scale: sealScale.value }],
+  }));
 
   const symbols = useMetaStore((s) => s.colorBlindSymbols);
   const { glass, interior } = vialPaths(width, height);
@@ -202,9 +256,11 @@ export function Bottle({ bottle, width, selected, hidden, shakeToken, hinted, on
                 const filled = i < n - 1;
                 const color = (filled ? bottle.segments[i] : bottle.segments[0]) ?? 'ruby';
                 const top = fillBottom - (i + 1) * segH;
+                // mystery: below-watermark segments read as liquid of unknown color
+                const grad = i < hiddenCount ? MYSTERY_GRADIENT : cylinderGradient(color);
                 return (
                   <Rect key={i} x={0} y={top} width={width} height={segH + 1} opacity={filled ? 1 : 0}>
-                    <LinearGradient start={vec(gx0, 0)} end={vec(gx1, 0)} {...cylinderGradient(color)} />
+                    <LinearGradient start={vec(gx0, 0)} end={vec(gx1, 0)} {...grad} />
                   </Rect>
                 );
               })}
@@ -224,27 +280,82 @@ export function Bottle({ bottle, width, selected, hidden, shakeToken, hinted, on
                 color="rgba(255,255,255,0.30)"
               />
             </Group>
+            {/* veil fog: permanent node faded by opacity (never conditionally mounted —
+                new Skia children render a frame late); sits under VialShine so the
+                glass keeps its sheen while the contents are hidden */}
+            <Group clip={interior} opacity={veilOpacity}>
+              <Rect x={0} y={0} width={width} height={height}>
+                <LinearGradient start={vec(0, bodyTop(width))} end={vec(0, height)} {...VEIL_GRADIENT} />
+              </Rect>
+            </Group>
             <VialShine w={width} h={height} />
             <VialNeck w={width} />
             {/* the cap IS the cork: it only appears once a bottle is complete */}
             {complete && <VialCap w={width} />}
           </Group>
         </Canvas>
+        {/* colorblind symbols: suppressed on veiled bottles and hidden mystery segments —
+            RN Text draws above the Skia veil and would leak the colors */}
         {symbols &&
-          bottle.segments.map((color, i) => (
-            <Text
-              key={i}
-              style={[
-                styles.symbol,
-                {
-                  top: fillBottom - (i + 1) * segH + segH / 2 - 8,
-                  fontSize: Math.min(13, segH * 0.4),
-                },
-              ]}
-            >
-              {COLOR_SYMBOL[color]}
-            </Text>
-          ))}
+          !bottle.veiled &&
+          bottle.segments.map((color, i) =>
+            i < hiddenCount ? null : (
+              <Text
+                key={i}
+                style={[
+                  styles.symbol,
+                  {
+                    top: fillBottom - (i + 1) * segH + segH / 2 - 8,
+                    fontSize: Math.min(13, segH * 0.4),
+                  },
+                ]}
+              >
+                {COLOR_SYMBOL[color]}
+              </Text>
+            ),
+          )}
+        {/* mystery "?" on each still-hidden segment */}
+        {bottle.segments.slice(0, hiddenCount).map((_, i) => (
+          <Text
+            key={`m${i}`}
+            style={[
+              styles.symbol,
+              styles.mystery,
+              {
+                top: fillBottom - (i + 1) * segH + segH / 2 - 8,
+                fontSize: Math.min(14, segH * 0.45),
+              },
+            ]}
+          >
+            ?
+          </Text>
+        ))}
+        {/* veil "?" — fades with the fog */}
+        <Animated.Text
+          pointerEvents="none"
+          style={[styles.veilMark, { top: bodyTop(width) + (height - bodyTop(width)) * 0.32, fontSize: width * 0.42 }, veilTextStyle]}
+        >
+          ?
+        </Animated.Text>
+        {/* wax seal (chained): disc + remaining-pour count, pops off at 0 */}
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.seal,
+            {
+              width: width * 0.52,
+              height: width * 0.52,
+              borderRadius: width * 0.26,
+              left: width * 0.24,
+              top: bodyTop(width) + (height - bodyTop(width)) * 0.5 - width * 0.26,
+            },
+            sealStyle,
+          ]}
+        >
+          <Text style={[styles.sealText, { fontSize: width * 0.24 }]}>
+            {locks > 0 ? locks : shownLocks.current}
+          </Text>
+        </Animated.View>
       </Animated.View>
     </Pressable>
   );
@@ -267,5 +378,33 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: 'rgba(0,0,0,0.55)',
     fontWeight: '900',
+  },
+  mystery: {
+    color: 'rgba(255,255,255,0.75)',
+  },
+  veilMark: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    color: 'rgba(255,227,166,0.65)',
+    fontFamily: font.display,
+  },
+  seal: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: button.red.rim,
+    borderWidth: 2.5,
+    borderColor: '#C07F1C',
+    shadowColor: '#190803',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  sealText: {
+    color: '#FFE3A6',
+    fontFamily: font.bold,
   },
 });

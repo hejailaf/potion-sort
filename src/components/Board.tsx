@@ -9,6 +9,7 @@ export function Board() {
   const invalidTapToken = useGameStore((s) => s.invalidTapToken);
   const invalidBottleId = useGameStore((s) => s.invalidBottleId);
   const hint = useGameStore((s) => s.hint);
+  const hiddenCounts = useGameStore((s) => s.hiddenCounts);
   const tapBottle = useGameStore((s) => s.tapBottle);
   const { width: screenWidth } = useWindowDimensions();
 
@@ -36,6 +37,7 @@ export function Board() {
                 hidden={activePours.some((p) => p.move.from === bottle.id)}
                 shakeToken={bottle.id === invalidBottleId ? invalidTapToken : 0}
                 hinted={bottle.id === hint?.from || bottle.id === hint?.to}
+                hiddenCount={hiddenCounts[bottle.id] ?? 0}
                 onTap={tapBottle}
               />
             );

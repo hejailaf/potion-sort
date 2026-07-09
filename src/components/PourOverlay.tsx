@@ -26,7 +26,7 @@ import {
   SWAY_CLAMP,
   SWAY_GAIN,
 } from './liquid';
-import { cylinderGradient, LIQUID_LIGHT, mouthPoint, rgba, segmentGeometry, vialPaths } from './vial';
+import { cylinderGradient, LIQUID_LIGHT, mouthPoint, MYSTERY_GRADIENT, rgba, segmentGeometry, vialPaths } from './vial';
 import { VialEdgeShading, VialInside, VialNeck, VialShine } from './VialGlass';
 
 const FLY_MS = 420;
@@ -424,7 +424,9 @@ function PourDrawing({
               <PooledBand color={move.color} index={bandCount} planes={planes} mx={m.x} my={m.y} span={s.h * 1.4} w={s.w} />
               {baseSegments
                 .map((c, i) => (
-                  <PooledBand key={i} color={c} index={i} planes={planes} mx={m.x} my={m.y} span={s.h * 1.4} w={s.w} />
+                  // mystery: bands still under the watermark fly as unknown navy —
+                  // the true color must not flash mid-flight
+                  <PooledBand key={i} color={c} index={i} mystery={i < pour.srcHidden} planes={planes} mx={m.x} my={m.y} span={s.h * 1.4} w={s.w} />
                 ))
                 .reverse()}
               <Path path={srcLipPath} style="stroke" strokeWidth={2.5} color="rgba(255,255,255,0.30)" />
@@ -448,6 +450,7 @@ function PooledBand({
   my,
   span,
   w,
+  mystery = false,
 }: {
   color: Color;
   index: number;
@@ -456,11 +459,14 @@ function PooledBand({
   my: number;
   span: number;
   w: number;
+  /** render as liquid of unknown color (mystery watermark) */
+  mystery?: boolean;
 }) {
   const y = useDerivedValue(() => my + planes.value[index]);
+  const grad = mystery ? MYSTERY_GRADIENT : cylinderGradient(color);
   return (
     <Rect x={mx - span} y={y} width={2 * span} height={2 * span}>
-      <LinearGradient start={vec(mx - w * 0.55, 0)} end={vec(mx + w * 0.55, 0)} {...cylinderGradient(color)} />
+      <LinearGradient start={vec(mx - w * 0.55, 0)} end={vec(mx + w * 0.55, 0)} {...grad} />
     </Rect>
   );
 }

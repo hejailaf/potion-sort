@@ -104,3 +104,16 @@ export function cylinderGradient(c: Color): { colors: string[]; positions: numbe
     positions: [0, 0.2, 0.4, 0.68, 1],
   };
 }
+
+/** mystery segments: liquid of unknown color — same 5-stop shading, navy instead of a hue
+ *  (solid, unlike the translucent empty-glass rgba, so it still reads as liquid) */
+export const MYSTERY_GRADIENT: { colors: string[]; positions: number[] } = {
+  colors: ['#242E58', '#313A6B', '#4A5C96', '#313A6B', '#242E58'],
+  positions: [0, 0.2, 0.4, 0.68, 1],
+};
+
+/** the veil: opaque dark fog drawn over the whole interior of a veiled bottle */
+export const VEIL_GRADIENT: { colors: string[]; positions: number[] } = {
+  colors: ['#2A2450', '#141031', '#0C0A24'],
+  positions: [0, 0.55, 1],
+};
