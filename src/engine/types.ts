@@ -40,6 +40,10 @@ export interface Bottle {
   id: string;
   /** index 0 = bottom of the bottle */
   segments: Color[];
+  /** veiled: contents hidden, can't pour in or out; a cork on any other bottle lifts one veil */
+  veiled?: boolean;
+  /** chained: can't pour in or out while > 0; every pour on the board decrements by 1 */
+  locks?: number;
 }
 
 export interface Move {
@@ -47,7 +51,16 @@ export interface Move {
   to: string;
   count: number;
   color: Color;
+  /** ids of chained bottles whose locks this pour decremented (for exact undo) */
+  decremented?: string[];
 }
+
+/** Level mechanics. `bottles` are indices into LevelDef.bottles (filled bottles only —
+ *  never empties or the booster 'extra' bottle). At most one modifier per level in v1.3. */
+export type Modifier =
+  | { type: 'veiled'; bottles: number[] }
+  | { type: 'mystery'; bottles: number[] }
+  | { type: 'chained'; bottles: { index: number; locks: number }[] };
 
 export interface LevelDef {
   id: number;
@@ -55,6 +68,7 @@ export interface LevelDef {
   /** contents of the pre-filled bottles; empty bottles are appended after these */
   bottles: Color[][];
   emptyBottles: number;
+  modifiers?: Modifier[];
 }
 
 export type GameStatus = 'playing' | 'won';

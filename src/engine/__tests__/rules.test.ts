@@ -1,7 +1,9 @@
-import { applyPour, canPour, hasAnyMove, isBottleComplete, isWin, pourAmount, topRun } from '../rules';
-import { Bottle, Color } from '../types';
+import { applyPour, canPour, hasAnyMove, isBottleComplete, isWin, pourAmount, revealNextVeil, topRun } from '../rules';
+import { Bottle, Color, LevelDef } from '../types';
 
 const b = (id: string, ...segments: Color[]): Bottle => ({ id, segments });
+const veiled = (id: string, ...segments: Color[]): Bottle => ({ id, segments, veiled: true });
+const chained = (id: string, locks: number, ...segments: Color[]): Bottle => ({ id, segments, locks });
 
 describe('topRun', () => {
   it('returns null for an empty bottle', () => {
@@ -106,6 +108,88 @@ describe('isWin', () => {
 
   it('is false while a uniform bottle is not yet full', () => {
     expect(isWin([b('a', 'ruby', 'ruby', 'ruby'), b('c', 'ruby'), b('e')])).toBe(false);
+  });
+});
+
+describe('modifiers: veil/lock legality', () => {
+  it('rejects pouring out of and into a veiled bottle', () => {
+    expect(canPour(veiled('a', 'ruby'), b('c'))).toBe(false);
+    expect(canPour(b('c', 'ruby'), veiled('a', 'ruby'))).toBe(false);
+  });
+
+  it('rejects pouring out of and into a still-chained bottle', () => {
+    expect(canPour(chained('a', 1, 'ruby'), b('c'))).toBe(false);
+    expect(canPour(b('c', 'ruby'), chained('a', 2, 'ruby'))).toBe(false);
+  });
+
+  it('treats a drained chain (locks 0) as a normal bottle', () => {
+    expect(canPour(chained('a', 0, 'ruby'), b('c'))).toBe(true);
+    expect(canPour(b('c', 'ruby'), chained('a', 0, 'ruby'))).toBe(true);
+  });
+
+  it('a frozen bottle cannot receive the segment that would complete it', () => {
+    expect(canPour(b('c', 'ruby'), veiled('a', 'ruby', 'ruby', 'ruby'))).toBe(false);
+    expect(canPour(b('c', 'ruby'), chained('a', 3, 'ruby', 'ruby', 'ruby'))).toBe(false);
+  });
+
+  it('hasAnyMove reports deadlock when the only would-be targets are frozen', () => {
+    expect(hasAnyMove([b('a', 'ruby', 'ruby', 'ruby', 'gold'), veiled('v', 'gold', 'ruby')])).toBe(false);
+  });
+});
+
+describe('modifiers: applyPour lock decrement', () => {
+  it('decrements every still-locked bystander and records their ids', () => {
+    const state = [b('a', 'ruby', 'ruby'), b('c'), chained('k', 2, 'gold'), chained('z', 1, 'teal')];
+    const result = applyPour(state, 'a', 'c')!;
+    expect(result.bottles.find((x) => x.id === 'k')!.locks).toBe(1);
+    expect(result.bottles.find((x) => x.id === 'z')!.locks).toBe(0);
+    expect(result.move.decremented).toEqual(['k', 'z']);
+  });
+
+  it('leaves drained chains alone and omits the field when nothing was locked', () => {
+    const state = [b('a', 'ruby', 'ruby'), b('c'), chained('k', 0, 'gold')];
+    const result = applyPour(state, 'a', 'c')!;
+    expect(result.bottles.find((x) => x.id === 'k')!.locks).toBe(0);
+    expect(result.move.decremented).toBeUndefined();
+  });
+});
+
+describe('revealNextVeil', () => {
+  it('lifts exactly one veil — the lexicographically smallest contents', () => {
+    const state = [veiled('x', 'teal', 'gold'), veiled('y', 'gold', 'teal'), b('c', 'ruby')];
+    const next = revealNextVeil(state);
+    // 'gold,teal' < 'teal,gold' → y unveils first
+    expect(next.find((x) => x.id === 'y')!.veiled).toBe(false);
+    expect(next.find((x) => x.id === 'x')!.veiled).toBe(true);
+  });
+
+  it('is an identity when nothing is veiled', () => {
+    const state = [b('a', 'ruby'), b('c')];
+    expect(revealNextVeil(state)).toBe(state);
+  });
+});
+
+describe('modifiers: serialization round-trip', () => {
+  it('a LevelDef with each modifier type survives JSON round-trip', () => {
+    const def: LevelDef = {
+      id: 60,
+      seed: 42,
+      bottles: [['ruby', 'gold', 'ruby', 'gold'], ['gold', 'ruby', 'gold', 'ruby']],
+      emptyBottles: 2,
+      modifiers: [
+        { type: 'veiled', bottles: [0] },
+        { type: 'mystery', bottles: [1] },
+        { type: 'chained', bottles: [{ index: 0, locks: 3 }] },
+      ],
+    };
+    expect(JSON.parse(JSON.stringify(def))).toEqual(def);
+  });
+
+  it('modified bottles and moves survive JSON round-trip', () => {
+    const state = [veiled('v', 'gold'), chained('k', 2, 'teal'), b('a', 'ruby', 'ruby'), b('c')];
+    const { bottles, move } = applyPour(state, 'a', 'c')!;
+    expect(JSON.parse(JSON.stringify(bottles))).toEqual(bottles);
+    expect(JSON.parse(JSON.stringify(move))).toEqual(move);
   });
 });
 

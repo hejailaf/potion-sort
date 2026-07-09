@@ -2,12 +2,16 @@ import { Bottle, Color, Move } from './types';
 
 /** Exact inverse of applyPour for the given recorded move. Inputs are never mutated. */
 export function revertMove(bottles: Bottle[], move: Move): Bottle[] {
+  const relock = new Set(move.decremented ?? []);
   return bottles.map((b) => {
     if (b.id === move.to) {
       return { ...b, segments: b.segments.slice(0, b.segments.length - move.count) };
     }
     if (b.id === move.from) {
       return { ...b, segments: [...b.segments, ...new Array<Color>(move.count).fill(move.color)] };
+    }
+    if (relock.has(b.id)) {
+      return { ...b, locks: (b.locks ?? 0) + 1 };
     }
     return b;
   });

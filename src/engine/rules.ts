@@ -26,6 +26,8 @@ export function isBottleComplete(bottle: Bottle): boolean {
 
 export function canPour(from: Bottle, to: Bottle): boolean {
   if (from.id === to.id) return false;
+  // veiled / still-chained bottles are frozen: nothing in, nothing out
+  if (from.veiled || to.veiled || from.locks || to.locks) return false;
   const run = topRun(from);
   if (!run) return false;
   if (to.segments.length >= BOTTLE_CAPACITY) return false;
@@ -56,12 +58,40 @@ export function applyPour(bottles: Bottle[], fromId: string, toId: string): Pour
   const count = pourAmount(from, to);
   if (count === 0) return null;
   const color = topRun(from)!.color;
+  const decremented: string[] = [];
   const next = bottles.map((b) => {
     if (b.id === fromId) return { ...b, segments: b.segments.slice(0, b.segments.length - count) };
     if (b.id === toId) return { ...b, segments: [...b.segments, ...new Array<Color>(count).fill(color)] };
+    if (b.locks) {
+      decremented.push(b.id);
+      return { ...b, locks: b.locks - 1 };
+    }
     return b;
   });
-  return { bottles: next, move: { from: fromId, to: toId, count, color } };
+  const move: Move = { from: fromId, to: toId, count, color };
+  if (decremented.length > 0) move.decremented = decremented;
+  return { bottles: next, move };
+}
+
+/**
+ * Lift one veil: the veiled bottle with the lexicographically smallest contents.
+ * (Not lowest index — the solver's canonical key treats bottles as interchangeable,
+ * and contents-order keeps that sound. Contents are hidden, so players can't tell.)
+ * Identity return when nothing is veiled.
+ */
+export function revealNextVeil(bottles: Bottle[]): Bottle[] {
+  let pick: Bottle | null = null;
+  let pickKey = '';
+  for (const b of bottles) {
+    if (!b.veiled) continue;
+    const key = b.segments.join(',');
+    if (pick === null || key < pickKey) {
+      pick = b;
+      pickKey = key;
+    }
+  }
+  if (pick === null) return bottles;
+  return bottles.map((b) => (b === pick ? { ...b, veiled: false } : b));
 }
 
 /** Win when every bottle is either empty or full of a single color. */
