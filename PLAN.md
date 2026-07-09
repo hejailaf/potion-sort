@@ -11,8 +11,8 @@
 | 0 — Repo audit & decluttering | ✅ done (`3c77acd`, `33737e0`, `a1822d6`; see AUDIT.md) |
 | 1 — Documentation reset | ✅ done (this commit) |
 | 2 — Mechanics framework (engine) | ✅ done (engine core `c715432` + integration commit) |
-| 3 — Mechanics UI & unlock moments | ⏳ next |
-| 4 — Animation & UI overhaul | pending |
+| 3 — Mechanics UI & unlock moments | ✅ done (`3f25ccd`, `a35ea73`, `0720679`) |
+| 4 — Animation & UI overhaul | ⏳ next |
 | 5 — Journey tab rework | pending |
 | 6 — Regression, docs close-out, build | pending |
 
@@ -50,15 +50,24 @@ solvability property (67 seeds × 3 bands); unlock boundaries 19/20/21, 39/40/41
 **Note:** the app path still generates without modifiers — Phase 3 flips the one
 `loadLevel` call site when the veil/mystery/chain visuals exist.
 
-## Phase 3 — Mechanics UI & unlock moments
+## Phase 3 — Mechanics UI & unlock moments ✅
 
-- Render all three mechanics on-theme: veils (Skia fog/veil material + reveal animation), mystery "?" segments (reads `hiddenCounts`), chain wrap + lock counter + unseal animation.
-- Flip the `loadLevel` call site to `generateLevel(n, seed, true)`; pin curated seeds for levels 20–24 via simulator playtest.
-- One-time unlock interstitial at 20/40/60: names the mechanic, 2–3 step visual explainer, "got it"; skippable, never twice, persisted (reuse the metaStore `onboardingDone` latch pattern).
-- First level with each mechanic: one dismissable contextual hint, then never again.
-- Haptics/SFX hooks for reveal/unseal events, matching existing audio patterns.
+Shipped: veil fog + "?" with 500ms reveal fade (permanent opacity-toggled Skia nodes —
+never conditionally mounted, per the one-frame-late rule); **wax seal** + countdown with
+pop-off animation (player-facing name: **Sealed Bottles**); mystery segments render
+unknown-navy with "?" glyphs, masked in the flying pour clone too (`ActivePour.srcHidden`);
+colorblind symbols suppressed where they'd leak; `loadLevel` generates with modifiers in
+normal mode (**daily stays vanilla**); mechanics always debut on their exact unlock level;
+one-time `UnlockInterstitial` (GameModal + mini-vial stepper) at 20/40/60 with
+`seenUnlocks` latch; one-time `MechanicHint` banner on the first level featuring each
+mechanic; `__DEV__` level-jump chips in Settings; CURATED_SEEDS 20–24 pinned
+(1 veil, estimates 17/19/19/20/21). Bugfix found in planning: a corked mystery bottle
+now clears its watermark.
 
-**Acceptance:** simulator walkthrough of 19→21, 39→41, and 59→61 showing interstitial, hint, 60fps reveal, persistence across restart.
+**Acceptance met:** simulator walkthroughs 19→21, 39→41, 59→61 — interstitials, hints,
+veil reveal on cork (recorded), mystery reveal-on-surface + masked flight (recorded),
+seal countdown + pop (recorded); interstitial-not-reshown and lifted-veil state verified
+across app kill/relaunch; levels 19/20/39/40/59/60 each played start-to-win on device.
 
 ## Phase 4 — Animation & UI overhaul (refine, don't redesign)
 
