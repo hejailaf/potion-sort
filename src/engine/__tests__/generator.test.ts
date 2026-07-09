@@ -1,7 +1,7 @@
 import { createBottles, difficultyFor, generateLevel, shuffleBottles } from '../generator';
 import { isBottleComplete } from '../rules';
 import { solve } from '../solver';
-import { Bottle, BOTTLE_CAPACITY, Color } from '../types';
+import { ALL_COLORS, Bottle, BOTTLE_CAPACITY, Color } from '../types';
 
 const TIER_SAMPLE_LEVELS = [1, 5, 10, 25, 50, 60];
 
@@ -33,6 +33,14 @@ describe('generateLevel', () => {
     expect(counts.size).toBe(tier.colors);
     for (const total of counts.values()) {
       expect(total % BOTTLE_CAPACITY).toBe(0);
+    }
+  });
+
+  it('every tier deals exactly one bottle per color, within the palette', () => {
+    for (let level = 1; level <= 100; level++) {
+      const tier = difficultyFor(level);
+      expect(tier.colors).toBe(tier.filled);
+      expect(tier.filled).toBeLessThanOrEqual(ALL_COLORS.length);
     }
   });
 

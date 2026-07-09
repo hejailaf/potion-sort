@@ -38,6 +38,10 @@ else is TypeScript.
 
 ## Working rules
 
+- **Delegation** (user directive, 2026-07-10): the session lead is planner/advisor and
+  owns the end result. Delegable implementation tasks run on **Sonnet 5 or Opus 4.8
+  subagents only**; the lead reviews every diff, runs the green gate, and does final
+  verification. Planning, user decisions, and sign-off are never delegated.
 - **Expo HAS CHANGED** — read the exact versioned docs at
   https://docs.expo.dev/versions/v54.0.0/ before writing any Expo code.
 - **Ponytail / lazy**: the smallest change that works, reuse before adding, no speculative

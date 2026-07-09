@@ -6,7 +6,9 @@ export type Color =
   | 'teal'
   | 'sapphire'
   | 'violet'
-  | 'rose';
+  | 'rose'
+  | 'ivory'
+  | 'umber';
 
 // v2 "Candlelit Alchemy" jewel set (design tokens --v2-liquid-*)
 export const COLOR_HEX: Record<Color, string> = {
@@ -18,6 +20,8 @@ export const COLOR_HEX: Record<Color, string> = {
   sapphire: '#4A7DFF',
   violet: '#A85CFF',
   rose: '#FF63C1',
+  ivory: '#F2E6C8',
+  umber: '#A05A2C',
 };
 
 /** Distinct symbol per color for the color-blind accessibility mode. */
@@ -30,6 +34,8 @@ export const COLOR_SYMBOL: Record<Color, string> = {
   sapphire: '✚',
   violet: '♥',
   rose: '☾',
+  ivory: '✿',
+  umber: '⬢',
 };
 
 export const ALL_COLORS = Object.keys(COLOR_HEX) as Color[];

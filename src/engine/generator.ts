@@ -27,24 +27,29 @@ export interface DifficultyTier {
 /**
  * Difficulty curve
  *
+ * Design rule: every color fills exactly ONE bottle (colors === filled), and the
+ * palette caps filled at ALL_COLORS.length.
+ *
  * | level | filled | colors | empty | total bottles |
  * |-------|--------|--------|-------|---------------|
  * | 1–3   |   3    |   3    |   2   |       5       |
  * | 4–7   |   4    |   4    |   2   |       6       |
- * | 8–14  |   5    |   5    |   2   |       7       |
- * | 15–24 |   6    |   6    |   2   |       8       |
- * | 25–39 |   7    |   7    |   2   |       9       |
- * | 40–59 |   8    |   8    |   2   |      10       |
- * | 60+   |  10    |   8    |   2   |      12       |
+ * | 8–13  |   5    |   5    |   2   |       7       |
+ * | 14–19 |   6    |   6    |   2   |       8       |
+ * | 20–25 |   7    |   7    |   2   |       9       |
+ * | 26–31 |   8    |   8    |   2   |      10       |
+ * | 32–37 |   9    |   9    |   2   |      11       |
+ * | 38+   |  10    |  10    |   2   |      12       |
  */
 export function difficultyFor(level: number): DifficultyTier {
   if (level <= 3) return { filled: 3, colors: 3, empty: 2 };
   if (level <= 7) return { filled: 4, colors: 4, empty: 2 };
-  if (level <= 14) return { filled: 5, colors: 5, empty: 2 };
-  if (level <= 24) return { filled: 6, colors: 6, empty: 2 };
-  if (level <= 39) return { filled: 7, colors: 7, empty: 2 };
-  if (level <= 59) return { filled: 8, colors: 8, empty: 2 };
-  return { filled: 10, colors: 8, empty: 2 };
+  if (level <= 13) return { filled: 5, colors: 5, empty: 2 };
+  if (level <= 19) return { filled: 6, colors: 6, empty: 2 };
+  if (level <= 25) return { filled: 7, colors: 7, empty: 2 };
+  if (level <= 31) return { filled: 8, colors: 8, empty: 2 };
+  if (level <= 37) return { filled: 9, colors: 9, empty: 2 };
+  return { filled: 10, colors: 10, empty: 2 };
 }
 
 /** Hand-tuned levels override the generator when present (PLAN.md open question #3). */
@@ -56,12 +61,12 @@ const HAND_TUNED: Record<number, LevelDef> = {};
  * (6, 8, 10, 11, 13, 15, 16, 16, 18, 20 moves). Explicit seeds bypass this.
  *
  * 20–24 introduce Veiled Bottles: seeds vetted for exactly 1 veil with gently
- * rising estimates (17, 19, 19, 20, 21) — distinct seeds, because same-tier
+ * rising estimates (18, 19, 21, 23, 25) — distinct seeds, because same-tier
  * deals repeat across levels for the same seed.
  */
 const CURATED_SEEDS: Record<number, number> = {
-  1: 197, 2: 181, 3: 31, 4: 77, 5: 95, 6: 16, 7: 110, 8: 11, 9: 106, 10: 73,
-  20: 26, 21: 8, 22: 28, 23: 44, 24: 2,
+  1: 17, 2: 5, 3: 1, 4: 10, 5: 3, 6: 4, 7: 11, 8: 6, 9: 8, 10: 18,
+  20: 233, 21: 79, 22: 61, 23: 19, 24: 2,
 };
 
 function shuffleInPlace<T>(items: T[], rng: () => number): T[] {

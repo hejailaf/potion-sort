@@ -85,6 +85,8 @@ export const LIQUID_DARK: Record<Color, string> = {
   sapphire: '#3560DB',
   violet: '#8A42E0',
   rose: '#DB459F',
+  ivory: '#CFB88A',
+  umber: '#75401D',
 };
 export const LIQUID_LIGHT: Record<Color, string> = {
   ruby: '#FFA0A8',
@@ -95,6 +97,8 @@ export const LIQUID_LIGHT: Record<Color, string> = {
   sapphire: '#8FAEFF',
   violet: '#C99CFF',
   rose: '#FF9FD8',
+  ivory: '#FFFBEF',
+  umber: '#C8925E',
 };
 
 /** horizontal cylinder shading: dark edge → base → light sheen (40%) → base → dark edge */

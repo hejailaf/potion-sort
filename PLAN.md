@@ -16,6 +16,12 @@
 | 5 — Journey tab rework | pending |
 | 6 — Regression, docs close-out, build | pending |
 
+> **Amendment (2026-07-10, user-approved):** one color completes exactly ONE bottle at
+> every tier (tested invariant). Palette grew 8 → 10 (`ivory`, `umber`); difficulty curve
+> steepened to reach 12 bottles (10 colors + 2 empties) at level 38+, matching the
+> reference game. Curated seeds 1–10 and 20–24 re-pinned (all deals changed with the
+> palette). Also new: the delegation working rule in AGENTS.md.
+
 ## Operating rules (from the brief — non-negotiable)
 
 1. **Plan-Mode gate per phase**: before each phase, produce a plan (files, order, risks, open questions) and wait for approval.
