@@ -1,6 +1,7 @@
-import { StyleSheet, Switch, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { GameButton } from '@/components/ui/GameButton';
 import { GameModal } from '@/components/ui/GameModal';
+import { useGameStore } from '@/state/gameStore';
 import { useMetaStore } from '@/state/metaStore';
 import { color, font } from '@/theme';
 
@@ -32,6 +33,26 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
           <Text style={styles.label}>Color-blind symbols</Text>
           <Switch value={colorBlindSymbols} onValueChange={setColorBlindSymbols} />
         </View>
+        {__DEV__ && (
+          <View style={styles.row}>
+            <Text style={styles.label}>Dev: jump to level</Text>
+            <View style={styles.devRow}>
+              {[19, 39, 59].map((n) => (
+                <Pressable
+                  key={n}
+                  style={styles.devChip}
+                  onPress={() => {
+                    useMetaStore.setState({ currentLevel: n });
+                    useGameStore.getState().loadLevel(n);
+                    onClose();
+                  }}
+                >
+                  <Text style={styles.devChipText}>{n}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        )}
       </View>
       <GameButton label="Done" variant="green" onPress={onClose} />
     </GameModal>
@@ -51,5 +72,22 @@ const styles = StyleSheet.create({
     color: color.text,
     fontFamily: font.medium,
     fontSize: 16,
+  },
+  devRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  devChip: {
+    backgroundColor: color.pillDark,
+    borderColor: color.goldRimBottom,
+    borderWidth: 1.5,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  devChipText: {
+    color: color.text,
+    fontFamily: font.semibold,
+    fontSize: 14,
   },
 });

@@ -9,13 +9,16 @@ import { BoosterBar } from '@/components/hud/BoosterBar';
 import { CoinCounter } from '@/components/hud/CoinCounter';
 import { LevelPill } from '@/components/hud/LevelPill';
 import { SettingsSheet } from '@/components/hud/SettingsSheet';
+import { MechanicHint } from '@/components/MechanicHint';
 import { OnboardingHint } from '@/components/OnboardingHint';
 import { PourOverlay } from '@/components/PourOverlay';
+import { UnlockInterstitial } from '@/components/UnlockInterstitial';
 import { WorkshopBackground } from '@/components/WorkshopBackground';
 import { GameButton } from '@/components/ui/GameButton';
 import { GameModal } from '@/components/ui/GameModal';
 import { IconButton } from '@/components/ui/IconButton';
 import { WinOverlay } from '@/components/WinOverlay';
+import { pendingUnlock } from '@/engine/progression';
 import { hasAnyMove } from '@/engine/rules';
 import { useGameStore } from '@/state/gameStore';
 import { useMetaStore } from '@/state/metaStore';
@@ -44,6 +47,16 @@ export default function GameScreen() {
   const lives = useMetaStore((s) => s.lives);
   const deadlocked =
     status === 'playing' && !animating && historyLength > 0 && !hasAnyMove(bottles);
+
+  // one-time mechanic unlock interstitial — never stacked on the deadlock modal,
+  // never on the daily (its fixed level number is unrelated to unlock progress)
+  const mode = useGameStore((s) => s.mode);
+  const levelId = useGameStore((s) => s.level?.id);
+  const seenUnlocks = useMetaStore((s) => s.seenUnlocks);
+  const unlockKind =
+    mode === 'normal' && status === 'playing' && !deadlocked && levelId !== undefined
+      ? pendingUnlock(levelId, seenUnlocks)
+      : null;
 
   useEffect(() => {
     if (daily) loadDaily();
@@ -94,7 +107,14 @@ export default function GameScreen() {
       <PourOverlay />
       <EffectsLayer />
       <OnboardingHint />
+      <MechanicHint suppressed={unlockKind !== null} />
       <WinOverlay />
+      {unlockKind !== null && (
+        <UnlockInterstitial
+          kind={unlockKind}
+          onDone={() => useMetaStore.getState().markUnlockSeen(unlockKind)}
+        />
+      )}
       <SettingsSheet visible={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
       <GameModal

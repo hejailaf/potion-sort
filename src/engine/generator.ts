@@ -54,9 +54,14 @@ const HAND_TUNED: Record<number, LevelDef> = {};
  * Curated default seeds for the first levels: picked by scanning 200 seeds per
  * level and choosing solver move-estimates that rise smoothly for new players
  * (6, 8, 10, 11, 13, 15, 16, 16, 18, 20 moves). Explicit seeds bypass this.
+ *
+ * 20–24 introduce Veiled Bottles: seeds vetted for exactly 1 veil with gently
+ * rising estimates (17, 19, 19, 20, 21) — distinct seeds, because same-tier
+ * deals repeat across levels for the same seed.
  */
 const CURATED_SEEDS: Record<number, number> = {
   1: 197, 2: 181, 3: 31, 4: 77, 5: 95, 6: 16, 7: 110, 8: 11, 9: 106, 10: 73,
+  20: 26, 21: 8, 22: 28, 23: 44, 24: 2,
 };
 
 function shuffleInPlace<T>(items: T[], rng: () => number): T[] {

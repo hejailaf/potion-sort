@@ -88,7 +88,7 @@ export function OnboardingHint() {
   );
 }
 
-function HintBanner({ text }: { text: string }) {
+export function HintBanner({ text }: { text: string }) {
   return (
     <View style={styles.bannerWrap}>
       <View style={styles.banner}>
