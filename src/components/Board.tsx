@@ -8,6 +8,7 @@ export function Board() {
   const selectedId = useGameStore((s) => s.selectedId);
   const invalidTapToken = useGameStore((s) => s.invalidTapToken);
   const invalidBottleId = useGameStore((s) => s.invalidBottleId);
+  const hint = useGameStore((s) => s.hint);
   const tapBottle = useGameStore((s) => s.tapBottle);
   const { width: screenWidth } = useWindowDimensions();
 
@@ -15,7 +16,8 @@ export function Board() {
   const rows =
     bottles.length <= 6 ? [bottles] : [bottles.slice(0, half), bottles.slice(half)];
   const perRow = Math.max(...rows.map((r) => r.length));
-  const bottleWidth = Math.min(56, Math.floor((screenWidth - 32 - (perRow - 1) * 10) / perRow));
+  // cap keeps small boards from ballooning; 72 lets large screens (Pro Max) breathe
+  const bottleWidth = Math.min(72, Math.floor((screenWidth - 32 - (perRow - 1) * 10) / perRow));
 
   return (
     <View style={styles.board}>
@@ -33,6 +35,7 @@ export function Board() {
                 selected={bottle.id === selectedId}
                 hidden={activePours.some((p) => p.move.from === bottle.id)}
                 shakeToken={bottle.id === invalidBottleId ? invalidTapToken : 0}
+                hinted={bottle.id === hint?.from || bottle.id === hint?.to}
                 onTap={tapBottle}
               />
             );
