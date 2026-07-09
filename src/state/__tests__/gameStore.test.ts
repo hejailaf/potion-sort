@@ -382,15 +382,12 @@ describe('gameStore', () => {
     expect(useGameStore.getState().history).toEqual([]);
   });
 
-  it('reaches won status after a full hand-played win path and logs it', () => {
-    const log = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+  it('reaches won status after a full hand-played win path', () => {
     load(tinyLevel);
     pour('b0', 'b2'); // gold,gold -> empty
     pour('b1', 'b0'); // ruby,ruby -> ruby stack (completes b0)
     pour('b1', 'b2'); // gold,gold -> gold stack (completes b2)
     expect(useGameStore.getState().status).toBe('won');
-    expect(log).toHaveBeenCalledWith(expect.stringContaining('WIN'));
-    log.mockRestore();
     // further taps are ignored once won
     tap('b0');
     expect(useGameStore.getState().selectedId).toBeNull();

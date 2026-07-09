@@ -62,16 +62,6 @@ export function vialPaths(w: number, h: number) {
   return hit;
 }
 
-/** hex color mixed toward white (amt>0) or black (amt<0) */
-export function shade(hex: string, amt: number): string {
-  const n = parseInt(hex.slice(1), 16);
-  const to = amt > 0 ? 255 : 0;
-  const f = Math.abs(amt);
-  const mix = (c: number) => Math.round(c + (to - c) * f);
-  const rgb = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(mix);
-  return `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
-}
-
 /** hex color with alpha */
 export function rgba(hex: string, a: number): string {
   const n = parseInt(hex.slice(1), 16);

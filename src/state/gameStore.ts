@@ -129,7 +129,7 @@ export const useGameStore = create<GameState>()(
   },
 
   tapBottle: (id) => {
-    const { bottles, selectedId, history, status, level, activePours } = get();
+    const { bottles, selectedId, history, status, activePours } = get();
     if (status === 'won') return;
     // a bottle draining into another is off-limits until it lands; but a bottle
     // that is only *receiving* a pour can still take more (rapid consolidation) —
@@ -157,9 +157,6 @@ export const useGameStore = create<GameState>()(
     const target = result.bottles.find((b) => b.id === id)!;
     const completed = isBottleComplete(target);
     const won = isWin(result.bottles);
-    if (won) {
-      console.log(`WIN: level ${level?.id} solved in ${history.length + 1} moves`);
-    }
     const srcBefore = bottles.find((b) => b.id === selectedId)!;
     set((s) => ({
       bottles: result.bottles,
