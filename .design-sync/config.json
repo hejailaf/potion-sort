@@ -1,0 +1,21 @@
+{
+  "pkg": "potion-sort",
+  "globalName": "PotionSortUI",
+  "shape": "package",
+  "buildCmd": "node .design-sync/build-web-dist.mjs",
+  "componentSrcMap": {
+    "GameButton": "src/components/ui/GameButton.tsx",
+    "IconButton": "src/components/ui/IconButton.tsx",
+    "GameModal": "src/components/ui/GameModal.tsx"
+  },
+  "dtsPropsFor": {
+    "GameButton": "label: string; onPress: () => void; variant?: \"green\" | \"red\" | \"violet\"; big?: boolean; disabled?: boolean;",
+    "IconButton": "glyph: string; onPress: () => void;",
+    "GameModal": "visible: boolean; title: string; onClose: () => void; icon?: string; message?: string; children?: React.ReactNode;"
+  },
+  "extraFonts": [".design-sync/fonts.css"],
+  "readmeHeader": ".design-sync/conventions.md",
+  "overrides": {
+    "GameModal": { "cardMode": "single", "primaryStory": "Rescue", "viewport": "380x560" }
+  }
+}
