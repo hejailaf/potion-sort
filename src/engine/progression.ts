@@ -52,20 +52,26 @@ export function modifiersFor(level: number, filled: number, rng: () => number): 
     (k) => level >= MECHANIC_UNLOCKS[k],
   );
   if (unlocked.length === 0) return [];
-  if (rng() < RAMP.breatherChance) return [];
+
+  // a mechanic's debut level (exactly its unlock) always features it — the unlock
+  // interstitial must be followed by the real thing, never a breather
+  const newest = unlocked[unlocked.length - 1];
+  const debut = level === MECHANIC_UNLOCKS[newest];
+  if (!debut && rng() < RAMP.breatherChance) return [];
 
   // rotation weighted toward the newest mechanic during its intro band
-  const newest = unlocked[unlocked.length - 1];
-  const inIntro = level < MECHANIC_UNLOCKS[newest] + RAMP.introBand;
-  const weights = unlocked.map((k) => (k === newest && inIntro ? RAMP.introWeight : 1));
-  const total = weights.reduce((a, w) => a + w, 0);
-  let roll = rng() * total;
-  let kind: MechanicKind = unlocked[0];
-  for (let i = 0; i < unlocked.length; i++) {
-    roll -= weights[i];
-    if (roll < 0) {
-      kind = unlocked[i];
-      break;
+  let kind: MechanicKind = newest;
+  if (!debut) {
+    const inIntro = level < MECHANIC_UNLOCKS[newest] + RAMP.introBand;
+    const weights = unlocked.map((k) => (k === newest && inIntro ? RAMP.introWeight : 1));
+    const total = weights.reduce((a, w) => a + w, 0);
+    let roll = rng() * total;
+    for (let i = 0; i < unlocked.length; i++) {
+      roll -= weights[i];
+      if (roll < 0) {
+        kind = unlocked[i];
+        break;
+      }
     }
   }
 
@@ -84,4 +90,15 @@ export function modifiersFor(level: number, filled: number, rng: () => number): 
     ];
   }
   return [{ type: kind, bottles: indices }];
+}
+
+/**
+ * The unlock interstitial to show, if any: the OLDEST unlocked mechanic the player
+ * hasn't been introduced to. Pure — the metaStore `seenUnlocks` latch feeds `seen`.
+ */
+export function pendingUnlock(level: number, seen: readonly MechanicKind[]): MechanicKind | null {
+  for (const kind of Object.keys(MECHANIC_UNLOCKS) as MechanicKind[]) {
+    if (level >= MECHANIC_UNLOCKS[kind] && !seen.includes(kind)) return kind;
+  }
+  return null;
 }

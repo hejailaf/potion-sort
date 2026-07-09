@@ -498,4 +498,31 @@ describe('gameStore modifiers', () => {
     expect(useGameStore.getState().hiddenCounts).toEqual({});
     expect(useGameStore.getState().history).toHaveLength(1);
   });
+
+  it('corking a mystery bottle clears its watermark — no "?" outlives the cork', () => {
+    loadWithHidden(mysteryLevel);
+    pour('b0', 'b4'); // golds out: b0 [ruby,ruby], hidden 1
+    pour('b1', 'b0'); // rubies in: b0 corks [ruby×4]
+    expect(useGameStore.getState().bottles.find((b) => b.id === 'b0')!.segments).toHaveLength(4);
+    expect(useGameStore.getState().hiddenCounts.b0).toBe(0);
+  });
+
+  it('snapshots srcHidden onto the pour for the flying-clone mask', () => {
+    loadWithHidden(mysteryLevel);
+    tap('b0');
+    tap('b4'); // two golds fly; b0 settles to length 2 → hidden 1
+    expect(useGameStore.getState().activePours[0].srcHidden).toBe(1);
+    finishAllPours();
+  });
+
+  it('loadLevel ≥ unlock generates the mechanic; the daily stays vanilla', () => {
+    useGameStore.getState().loadLevel(20);
+    const { level, bottles } = useGameStore.getState();
+    expect(level!.modifiers?.[0]?.type).toBe('veiled'); // debut rule
+    expect(bottles.some((b) => b.veiled)).toBe(true);
+
+    useGameStore.getState().loadDaily();
+    expect(useGameStore.getState().level!.modifiers).toBeUndefined();
+    expect(useGameStore.getState().bottles.some((b) => b.veiled || b.locks)).toBe(false);
+  });
 });

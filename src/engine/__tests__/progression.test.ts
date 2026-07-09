@@ -1,5 +1,5 @@
 import { mulberry32 } from '../generator';
-import { MECHANIC_UNLOCKS, MechanicKind, modifiersFor, RAMP } from '../progression';
+import { MECHANIC_UNLOCKS, MechanicKind, modifiersFor, pendingUnlock, RAMP } from '../progression';
 import { Modifier } from '../types';
 
 const FILLED = 10; // level-60 tier size; big enough for every mechanic's max count
@@ -24,9 +24,16 @@ describe('unlock schedule boundaries', () => {
     [20, 'veiled'],
     [40, 'mystery'],
     [60, 'chained'],
-  ] as [number, MechanicKind][])('level %i can produce its newly unlocked mechanic', (level, kind) => {
-    expect(sample(level).some((m) => m.type === kind)).toBe(true);
-  });
+  ] as [number, MechanicKind][])(
+    'debut level %i ALWAYS features its newly unlocked mechanic (never a breather)',
+    (level, kind) => {
+      for (let s = 1; s <= 40; s++) {
+        const mods = modifiersFor(level, FILLED, mulberry32(s));
+        expect(mods).toHaveLength(1);
+        expect(mods[0].type).toBe(kind);
+      }
+    },
+  );
 
   it.each([21, 41, 61])('level %i still produces modifiers (no off-by-one gap)', (level) => {
     expect(sample(level).length).toBeGreaterThan(0);
@@ -46,9 +53,9 @@ describe('modifiersFor invariants', () => {
     }
   });
 
-  it('some levels are breathers (no modifier)', () => {
+  it('some non-debut levels are breathers (no modifier)', () => {
     const withNone = Array.from({ length: 60 }, (_, s) =>
-      modifiersFor(60, FILLED, mulberry32(s + 1)),
+      modifiersFor(61, FILLED, mulberry32(s + 1)),
     ).filter((m) => m.length === 0);
     expect(withNone.length).toBeGreaterThan(0);
   });
@@ -77,11 +84,34 @@ describe('modifiersFor invariants', () => {
     const atIntro = sample(unlock, 60).filter((m) => m.type === 'veiled');
     expect(atIntro.length).toBeGreaterThan(0);
     for (const m of atIntro) expect(m.bottles).toHaveLength(RAMP.veiled.minCount);
-    const late = sample(unlock + RAMP.introBand, 60).filter((m) => m.type === 'veiled');
+    // unlock+introBand is mystery's debut (always mystery) — sample one past it
+    const late = sample(unlock + RAMP.introBand + 1, 60).filter((m) => m.type === 'veiled');
     expect(late.some((m) => m.bottles.length === RAMP.veiled.maxCount)).toBe(true);
   });
 
   it('is deterministic for the same (level, filled, rng seed)', () => {
     expect(modifiersFor(45, 8, mulberry32(7))).toEqual(modifiersFor(45, 8, mulberry32(7)));
+  });
+});
+
+describe('pendingUnlock (interstitial predicate)', () => {
+  it('is null below the first unlock', () => {
+    expect(pendingUnlock(19, [])).toBeNull();
+  });
+
+  it('returns the newly reached mechanic once unseen', () => {
+    expect(pendingUnlock(20, [])).toBe('veiled');
+    expect(pendingUnlock(40, ['veiled'])).toBe('mystery');
+    expect(pendingUnlock(60, ['veiled', 'mystery'])).toBe('chained');
+  });
+
+  it('is null once seen', () => {
+    expect(pendingUnlock(25, ['veiled'])).toBeNull();
+    expect(pendingUnlock(60, ['veiled', 'mystery', 'chained'])).toBeNull();
+  });
+
+  it('returns the OLDEST unseen mechanic when several are pending (late joiner)', () => {
+    expect(pendingUnlock(45, [])).toBe('veiled');
+    expect(pendingUnlock(65, ['veiled'])).toBe('mystery');
   });
 });

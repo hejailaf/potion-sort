@@ -171,6 +171,25 @@ describe('metaStore', () => {
     expect(useMetaStore.getState().pendingCoinReward).toBe(1200);
   });
 
+  it('markUnlockSeen / markHintSeen latch once, idempotently', () => {
+    useMetaStore.getState().markUnlockSeen('veiled');
+    useMetaStore.getState().markUnlockSeen('veiled');
+    useMetaStore.getState().markUnlockSeen('mystery');
+    expect(useMetaStore.getState().seenUnlocks).toEqual(['veiled', 'mystery']);
+    useMetaStore.getState().markHintSeen('chained');
+    useMetaStore.getState().markHintSeen('chained');
+    expect(useMetaStore.getState().seenHints).toEqual(['chained']);
+  });
+
+  it('persists the unlock latches', async () => {
+    useMetaStore.getState().markUnlockSeen('veiled');
+    useMetaStore.getState().markHintSeen('veiled');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const persisted = JSON.parse((await AsyncStorage.getItem('potion-sort-meta'))!);
+    expect(persisted.state.seenUnlocks).toEqual(['veiled']);
+    expect(persisted.state.seenHints).toEqual(['veiled']);
+  });
+
   it('markReviewPrompted records the highest milestone once', () => {
     useMetaStore.getState().markReviewPrompted(10);
     expect(useMetaStore.getState().reviewPromptedFor).toBe(10);

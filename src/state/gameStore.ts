@@ -19,6 +19,8 @@ export interface ActivePour {
   tgtBefore: Bottle;
   /** this pour corks the target; completion effects fire when it finishes */
   completes: boolean;
+  /** post-settle mystery watermark of the source — the flying clone masks bands below it */
+  srcHidden: number;
 }
 
 let pourSeq = 0;
@@ -34,7 +36,8 @@ export function settleHidden(
   for (const b of bottles) {
     const prev = next[b.id];
     if (prev === undefined) continue;
-    const cap = Math.max(0, b.segments.length - 1);
+    // a corked bottle holds nothing unknown — clear it so the "?" never outlives the cork
+    const cap = isBottleComplete(b) ? 0 : Math.max(0, b.segments.length - 1);
     if (cap < prev) {
       next[b.id] = cap;
       changed = true;
@@ -121,8 +124,9 @@ export const useGameStore = create<GameState>()(
   hiddenCounts: {},
 
   loadLevel: (levelNumber, seed, mode = 'normal') => {
-    // modifiers stay off until the mechanics UI ships (Phase 3 flips this to withModifiers)
-    const level = generateLevel(levelNumber, seed);
+    // mechanics run in normal progression only — the daily stays vanilla (its level
+    // number is fixed at 30 and unrelated to the player's unlock progress)
+    const level = generateLevel(levelNumber, seed, mode === 'normal');
     set({
       level,
       bottles: createBottles(level),
@@ -201,18 +205,28 @@ export const useGameStore = create<GameState>()(
     const committed = completed ? revealNextVeil(result.bottles) : result.bottles;
     const won = isWin(committed);
     const srcBefore = bottles.find((b) => b.id === selectedId)!;
-    set((s) => ({
-      bottles: committed,
-      hiddenCounts: settleHidden(s.hiddenCounts, committed),
-      activePours: [
-        ...s.activePours,
-        { id: ++pourSeq, move: result.move, srcBefore, tgtBefore: tapped, completes: completed },
-      ],
-      history: pushMove(history, result.move),
-      selectedId: null,
-      hint: null, // any pour makes a glowing hint stale
-      status: won ? 'won' : 'playing',
-    }));
+    set((s) => {
+      const settled = settleHidden(s.hiddenCounts, committed);
+      return {
+        bottles: committed,
+        hiddenCounts: settled,
+        activePours: [
+          ...s.activePours,
+          {
+            id: ++pourSeq,
+            move: result.move,
+            srcBefore,
+            tgtBefore: tapped,
+            completes: completed,
+            srcHidden: settled[selectedId] ?? 0,
+          },
+        ],
+        history: pushMove(history, result.move),
+        selectedId: null,
+        hint: null, // any pour makes a glowing hint stale
+        status: won ? 'won' : 'playing',
+      };
+    });
   },
 
   finishPour: (pourId) => {

@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { mulberry32 } from '../engine/generator';
+import { MechanicKind } from '../engine/progression';
 
 export const WIN_REWARD_COINS = 20;
 export const MAX_LIVES = 5;
@@ -81,6 +82,10 @@ interface MetaState {
   lastDailyCompleted: string | null;
   /** consecutive-day daily-challenge streak (0 when never / broken) */
   dailyStreak: number;
+  /** mechanics whose one-time unlock interstitial has been shown */
+  seenUnlocks: MechanicKind[];
+  /** mechanics whose first-level contextual hint has been shown */
+  seenHints: MechanicKind[];
   /** notification permission has been requested once (after the first win) */
   notifPromptDone: boolean;
   /** highest win-milestone level a rating prompt was shown for (0 = never) */
@@ -109,6 +114,8 @@ interface MetaState {
   completeDaily: () => void;
   setNotifPromptDone: () => void;
   markReviewPrompted: (milestone: number) => void;
+  markUnlockSeen: (kind: MechanicKind) => void;
+  markHintSeen: (kind: MechanicKind) => void;
   /** rewarded-ad reward: +1 life; returns false (nothing changes) at max */
   grantLife: () => boolean;
   /** rewarded-ad reward: one free booster charge */
@@ -131,6 +138,8 @@ export const useMetaStore = create<MetaState>()(
       lastLifeAt: null,
       lastDailyCompleted: null,
       dailyStreak: 0,
+      seenUnlocks: [],
+      seenHints: [],
       notifPromptDone: false,
       reviewPromptedFor: 0,
       pendingCoinReward: null,
@@ -170,6 +179,10 @@ export const useMetaStore = create<MetaState>()(
       setNotifPromptDone: () => set({ notifPromptDone: true }),
       markReviewPrompted: (milestone) =>
         set((s) => ({ reviewPromptedFor: Math.max(s.reviewPromptedFor, milestone) })),
+      markUnlockSeen: (kind) =>
+        set((s) => (s.seenUnlocks.includes(kind) ? {} : { seenUnlocks: [...s.seenUnlocks, kind] })),
+      markHintSeen: (kind) =>
+        set((s) => (s.seenHints.includes(kind) ? {} : { seenHints: [...s.seenHints, kind] })),
       grantLife: () => {
         let granted = false;
         set((s) => {
@@ -250,6 +263,8 @@ export const useMetaStore = create<MetaState>()(
         lastLifeAt: s.lastLifeAt,
         lastDailyCompleted: s.lastDailyCompleted,
         dailyStreak: s.dailyStreak,
+        seenUnlocks: s.seenUnlocks,
+        seenHints: s.seenHints,
         notifPromptDone: s.notifPromptDone,
         reviewPromptedFor: s.reviewPromptedFor,
       }),
