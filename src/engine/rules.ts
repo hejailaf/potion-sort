@@ -68,3 +68,14 @@ export function applyPour(bottles: Bottle[], fromId: string, toId: string): Pour
 export function isWin(bottles: Bottle[]): boolean {
   return bottles.every((b) => b.segments.length === 0 || isBottleComplete(b));
 }
+
+/**
+ * Any legal pour the player could actually make? Complete bottles are excluded as
+ * sources — the UI never lets them be picked up — so `false` means a real deadlock,
+ * not merely "the solver would stop here".
+ */
+export function hasAnyMove(bottles: Bottle[]): boolean {
+  return bottles.some(
+    (from) => !isBottleComplete(from) && bottles.some((to) => canPour(from, to)),
+  );
+}

@@ -56,3 +56,45 @@ export function solve(bottles: Bottle[]): SolveResult {
   const moves = dfs(bottles, 0);
   return moves === null ? { solvable: false } : { solvable: true, moveEstimate: moves };
 }
+
+/**
+ * The first move of a solution from this state — the hint booster's payload.
+ * Same search order as `solve`, but records the path instead of only its depth
+ * (kept separate so `solve`'s hot generator loop stays allocation-free). Returns
+ * null when the position is unsolvable / a dead end.
+ */
+export function hintMove(bottles: Bottle[]): { from: string; to: string } | null {
+  const visited = new Set<string>();
+
+  function dfs(state: Bottle[]): { from: string; to: string } | null {
+    if (isWin(state)) return null; // already solved: no move to hint
+    const key = canonicalKey(state);
+    if (visited.has(key) || visited.size >= VISITED_CAP) return null;
+    visited.add(key);
+
+    for (const from of state) {
+      if (from.segments.length === 0 || isBottleComplete(from)) continue;
+      const run = topRun(from)!;
+      const matching: Bottle[] = [];
+      let empty: Bottle | null = null;
+      for (const to of state) {
+        if (!canPour(from, to)) continue;
+        if (to.segments.length === 0) {
+          if (!empty && run.count < from.segments.length) empty = to;
+        } else {
+          matching.push(to);
+        }
+      }
+      if (empty) matching.push(empty);
+      for (const to of matching) {
+        const result = applyPour(state, from.id, to.id)!;
+        if (isWin(result.bottles) || dfs(result.bottles) !== null) {
+          return { from: from.id, to: to.id };
+        }
+      }
+    }
+    return null;
+  }
+
+  return dfs(bottles);
+}

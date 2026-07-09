@@ -44,6 +44,10 @@ interface GameState {
   completedBottleId: string | null;
   /** +Bottle booster is limited to once per level */
   extraBottleUsed: boolean;
+  /** solver move the hint booster is currently glowing (from→to), or null */
+  hint: { from: string; to: string } | null;
+  /** the once-per-level free hint has been spent */
+  hintUsed: boolean;
   /** transient: when this board was dealt — feeds the level_win duration metric */
   startedAt: number;
   loadLevel: (levelNumber: number, seed?: number, mode?: 'normal' | 'daily') => void;
@@ -59,6 +63,9 @@ interface GameState {
   undoMove: () => void;
   shuffleBoard: () => void;
   addExtraBottle: () => void;
+  /** glow the given solver move; marks the free hint spent */
+  showHint: (move: { from: string; to: string }) => void;
+  clearHint: () => void;
 }
 
 export const useGameStore = create<GameState>()(
@@ -76,6 +83,8 @@ export const useGameStore = create<GameState>()(
   completionToken: 0,
   completedBottleId: null,
   extraBottleUsed: false,
+  hint: null,
+  hintUsed: false,
   startedAt: 0,
 
   loadLevel: (levelNumber, seed, mode = 'normal') => {
@@ -91,6 +100,8 @@ export const useGameStore = create<GameState>()(
       activePours: [],
       completedBottleId: null,
       extraBottleUsed: false,
+      hint: null,
+      hintUsed: false,
       // ponytail: resumed boards reset the clock on re-entry; fine for a coarse metric
       startedAt: Date.now(),
     });
@@ -101,7 +112,7 @@ export const useGameStore = create<GameState>()(
   resumeOrLoad: (levelNumber) => {
     const { level, status, bottles, mode } = get();
     if (mode === 'normal' && level?.id === levelNumber && status === 'playing' && bottles.length > 0) {
-      set({ selectedId: null, activePours: [], invalidBottleId: null });
+      set({ selectedId: null, activePours: [], invalidBottleId: null, hint: null });
       return;
     }
     get().loadLevel(levelNumber);
@@ -111,7 +122,7 @@ export const useGameStore = create<GameState>()(
     const seed = Number(todayKey().replace(/-/g, ''));
     const { level, status, bottles, mode } = get();
     if (mode === 'daily' && level?.seed === seed && status === 'playing' && bottles.length > 0) {
-      set({ selectedId: null, activePours: [], invalidBottleId: null });
+      set({ selectedId: null, activePours: [], invalidBottleId: null, hint: null });
       return;
     }
     get().loadLevel(DAILY_LEVEL, seed, 'daily');
@@ -158,6 +169,7 @@ export const useGameStore = create<GameState>()(
       ],
       history: pushMove(history, result.move),
       selectedId: null,
+      hint: null, // any pour makes a glowing hint stale
       status: won ? 'won' : 'playing',
     }));
   },
@@ -217,8 +229,11 @@ export const useGameStore = create<GameState>()(
     const { bottles, activePours, status, extraBottleUsed } = get();
     if (activePours.length > 0 || status === 'won' || extraBottleUsed) return;
     if (!useMetaStore.getState().consumeBooster('extraBottle')) return;
-    set({ bottles: [...bottles, { id: 'extra', segments: [] }], extraBottleUsed: true });
+    set({ bottles: [...bottles, { id: 'extra', segments: [] }], extraBottleUsed: true, hint: null });
   },
+
+  showHint: (move) => set({ hint: move, hintUsed: true }),
+  clearHint: () => set({ hint: null }),
     }),
     {
       name: 'potion-sort-game',

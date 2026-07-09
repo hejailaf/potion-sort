@@ -1,4 +1,4 @@
-import { applyPour, canPour, isBottleComplete, isWin, pourAmount, topRun } from '../rules';
+import { applyPour, canPour, hasAnyMove, isBottleComplete, isWin, pourAmount, topRun } from '../rules';
 import { Bottle, Color } from '../types';
 
 const b = (id: string, ...segments: Color[]): Bottle => ({ id, segments });
@@ -106,5 +106,25 @@ describe('isWin', () => {
 
   it('is false while a uniform bottle is not yet full', () => {
     expect(isWin([b('a', 'ruby', 'ruby', 'ruby'), b('c', 'ruby'), b('e')])).toBe(false);
+  });
+});
+
+describe('hasAnyMove (deadlock check)', () => {
+  it('is true when any legal pour exists', () => {
+    expect(hasAnyMove([b('a', 'ruby'), b('c')])).toBe(true); // pour into the empty
+  });
+
+  it('is false when the board is stuck: no space, no matching tops', () => {
+    expect(
+      hasAnyMove([
+        b('a', 'ruby', 'gold', 'ruby', 'gold'),
+        b('c', 'gold', 'ruby', 'gold', 'ruby'),
+      ]),
+    ).toBe(false);
+  });
+
+  it('does not count a complete bottle as a source (the UI cannot pick it up)', () => {
+    // 'a' is a corked ruby; 'c' has space but its only would-be source is the cork
+    expect(hasAnyMove([b('a', 'ruby', 'ruby', 'ruby', 'ruby'), b('c', 'ruby', 'ruby')])).toBe(false);
   });
 });

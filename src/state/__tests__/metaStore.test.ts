@@ -11,6 +11,7 @@ import {
   todayKey,
   useMetaStore,
   WIN_REWARD_COINS,
+  yesterdayKey,
 } from '../metaStore';
 
 const initialState = useMetaStore.getState();
@@ -80,6 +81,26 @@ describe('metaStore', () => {
     useMetaStore.getState().completeDaily(); // same day: no-op
     expect(useMetaStore.getState().coins).toBe(DAILY_REWARD_COINS);
     expect(useMetaStore.getState().boosters[dailyBoosterKind()]).toBe(4);
+  });
+
+  it('daily streak grows on consecutive days and resets after a gap', () => {
+    // completing today when the last completion was yesterday extends the streak
+    useMetaStore.setState({ lastDailyCompleted: yesterdayKey(), dailyStreak: 3 });
+    useMetaStore.getState().completeDaily();
+    expect(useMetaStore.getState().dailyStreak).toBe(4);
+
+    // a gap (last completion long ago) restarts the streak at 1
+    useMetaStore.setState({ lastDailyCompleted: '2020-01-01', dailyStreak: 9 });
+    useMetaStore.getState().completeDaily();
+    expect(useMetaStore.getState().dailyStreak).toBe(1);
+  });
+
+  it('spendCoins deducts when affordable and refuses when short', () => {
+    useMetaStore.setState({ coins: 30 });
+    expect(useMetaStore.getState().spendCoins(25)).toBe(true);
+    expect(useMetaStore.getState().coins).toBe(5);
+    expect(useMetaStore.getState().spendCoins(25)).toBe(false);
+    expect(useMetaStore.getState().coins).toBe(5);
   });
 
   it('buyBooster trades coins for a charge and refuses when short', () => {

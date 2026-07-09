@@ -1,4 +1,5 @@
-import { solve } from '../solver';
+import { canPour } from '../rules';
+import { hintMove, solve } from '../solver';
 import { Bottle, Color } from '../types';
 
 const b = (id: string, ...segments: Color[]): Bottle => ({ id, segments });
@@ -39,5 +40,33 @@ describe('solve', () => {
       b('e'),
     ];
     expect(solve(state)).toEqual(solve(state));
+  });
+});
+
+describe('hintMove', () => {
+  it('returns a legal first move that advances toward a solution', () => {
+    const state = [
+      b('a', 'ruby', 'ruby', 'gold', 'gold'),
+      b('c', 'gold', 'gold', 'ruby', 'ruby'),
+      b('e'),
+    ];
+    const move = hintMove(state)!;
+    expect(move).not.toBeNull();
+    const from = state.find((x) => x.id === move.from)!;
+    const to = state.find((x) => x.id === move.to)!;
+    expect(canPour(from, to)).toBe(true);
+  });
+
+  it('returns null for a dead position', () => {
+    expect(
+      hintMove([
+        b('a', 'ruby', 'gold', 'ruby', 'gold'),
+        b('c', 'gold', 'ruby', 'gold', 'ruby'),
+      ]),
+    ).toBeNull();
+  });
+
+  it('returns null for an already-won board', () => {
+    expect(hintMove([b('a', 'ruby', 'ruby', 'ruby', 'ruby'), b('e')])).toBeNull();
   });
 });

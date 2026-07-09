@@ -9,11 +9,22 @@ export const LIFE_REGEN_MS = 30 * 60_000;
 export const LIVES_REFILL_COST = 100;
 export const BOOSTER_COST = 60;
 export const DAILY_REWARD_COINS = 50;
+export const HINT_COST = 25;
+
+function dateKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 /** local calendar date, YYYY-MM-DD — the daily challenge's identity and seed source */
 export function todayKey(): string {
+  return dateKey(new Date());
+}
+
+/** yesterday's calendar date — a daily completed on this key extends the streak */
+export function yesterdayKey(): string {
   const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  d.setDate(d.getDate() - 1);
+  return dateKey(d);
 }
 
 /** deterministic bonus booster for a given daily */
@@ -68,6 +79,8 @@ interface MetaState {
   lastLifeAt: number | null;
   /** todayKey() of the last completed daily challenge */
   lastDailyCompleted: string | null;
+  /** consecutive-day daily-challenge streak (0 when never / broken) */
+  dailyStreak: number;
   /** notification permission has been requested once (after the first win) */
   notifPromptDone: boolean;
   /** highest win-milestone level a rating prompt was shown for (0 = never) */
@@ -82,6 +95,8 @@ interface MetaState {
   clearCoinCelebration: () => void;
   /** returns false (and changes nothing) when the charge is already at 0 */
   consumeBooster: (kind: BoosterKind) => boolean;
+  /** deduct coins for an ad-hoc purchase (e.g. a hint); false when short */
+  spendCoins: (amount: number) => boolean;
   /** apply timestamp regen; call on home mount — spendLife runs it itself */
   syncLives: () => void;
   /** returns false (and changes nothing) at 0 lives */
@@ -115,6 +130,7 @@ export const useMetaStore = create<MetaState>()(
       lives: MAX_LIVES,
       lastLifeAt: null,
       lastDailyCompleted: null,
+      dailyStreak: 0,
       notifPromptDone: false,
       reviewPromptedFor: 0,
       pendingCoinReward: null,
@@ -141,6 +157,15 @@ export const useMetaStore = create<MetaState>()(
           return { boosters: { ...s.boosters, [kind]: s.boosters[kind] - 1 } };
         });
         return consumed;
+      },
+      spendCoins: (amount) => {
+        let spent = false;
+        set((s) => {
+          if (s.coins < amount) return {};
+          spent = true;
+          return { coins: s.coins - amount };
+        });
+        return spent;
       },
       setNotifPromptDone: () => set({ notifPromptDone: true }),
       markReviewPrompted: (milestone) =>
@@ -178,11 +203,14 @@ export const useMetaStore = create<MetaState>()(
           const key = todayKey();
           if (s.lastDailyCompleted === key) return {};
           const kind = dailyBoosterKind(key);
+          // consecutive day extends the streak; any gap restarts it at 1
+          const dailyStreak = s.lastDailyCompleted === yesterdayKey() ? s.dailyStreak + 1 : 1;
           return {
             coins: s.coins + DAILY_REWARD_COINS,
             pendingCoinReward: DAILY_REWARD_COINS,
             boosters: { ...s.boosters, [kind]: s.boosters[kind] + 1 },
             lastDailyCompleted: key,
+            dailyStreak,
           };
         }),
       buyBooster: (kind) => {
@@ -221,6 +249,7 @@ export const useMetaStore = create<MetaState>()(
         lives: s.lives,
         lastLifeAt: s.lastLifeAt,
         lastDailyCompleted: s.lastDailyCompleted,
+        dailyStreak: s.dailyStreak,
         notifPromptDone: s.notifPromptDone,
         reviewPromptedFor: s.reviewPromptedFor,
       }),
