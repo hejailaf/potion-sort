@@ -1,10 +1,35 @@
 import { Group, LinearGradient, Oval, Path, RadialGradient, Rect, RoundedRect, vec } from '@shopify/react-native-skia';
 import { bodyTop, capH, CAP_STROKE, GLASS_STROKE, neckH, roundedRect, vialPaths } from './vial';
 
+/** Cylindrical glass edge shading: cool light on the left, deep shadow on the
+ *  right. Used inside the bottle body, and re-drawn over the pour overlay's
+ *  rising fill so poured liquid gets the same glass look as resting liquid. */
+export function VialEdgeShading({ w, h }: { w: number; h: number }) {
+  const s = w / 58;
+  const y0 = bodyTop(w);
+  return (
+    <Group>
+      <Rect x={3 * s} y={y0} width={12 * s} height={h - y0}>
+        <LinearGradient
+          start={vec(3 * s, 0)}
+          end={vec(15 * s, 0)}
+          colors={['rgba(120,150,255,0.10)', 'rgba(120,150,255,0)']}
+        />
+      </Rect>
+      <Rect x={w - 15 * s} y={y0} width={12 * s} height={h - y0}>
+        <LinearGradient
+          start={vec(w - 15 * s, 0)}
+          end={vec(w - 3 * s, 0)}
+          colors={['rgba(0,0,12,0)', 'rgba(0,0,12,0.45)']}
+        />
+      </Rect>
+    </Group>
+  );
+}
+
 /** The glass body: dark navy fill, inner edge shading, faint inner glow.
  *  Draw liquid between <VialInside> and <VialShine> so reflections sit on top. */
 export function VialInside({ w, h }: { w: number; h: number }) {
-  const s = w / 58;
   const { glass, interior } = vialPaths(w, h);
   const y0 = bodyTop(w);
   return (
@@ -17,21 +42,7 @@ export function VialInside({ w, h }: { w: number; h: number }) {
         />
       </Path>
       <Group clip={interior}>
-        {/* cylindrical glass shading: cool light on the left, deep shadow on the right */}
-        <Rect x={3 * s} y={y0} width={12 * s} height={h - y0}>
-          <LinearGradient
-            start={vec(3 * s, 0)}
-            end={vec(15 * s, 0)}
-            colors={['rgba(120,150,255,0.10)', 'rgba(120,150,255,0)']}
-          />
-        </Rect>
-        <Rect x={w - 15 * s} y={y0} width={12 * s} height={h - y0}>
-          <LinearGradient
-            start={vec(w - 15 * s, 0)}
-            end={vec(w - 3 * s, 0)}
-            colors={['rgba(0,0,12,0)', 'rgba(0,0,12,0.45)']}
-          />
-        </Rect>
+        <VialEdgeShading w={w} h={h} />
       </Group>
       <Path path={interior} style="stroke" strokeWidth={3} color="rgba(110,140,255,0.14)" />
     </Group>

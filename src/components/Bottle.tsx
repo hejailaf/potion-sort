@@ -194,33 +194,35 @@ export function Bottle({ bottle, width, selected, hidden, shakeToken, hinted, on
             )}
             <VialInside w={width} h={height} />
             <Group clip={interior}>
-              {/* covered segments stay rects; each gets the cylinder-shading gradient */}
-              {bottle.segments.slice(0, Math.max(0, n - 1)).map((color, i) => {
+              {/* covered segments stay rects; each gets the cylinder-shading gradient.
+                  FIXED node count (capacity-1), hidden via opacity: newly-added Skia
+                  children hit the screen a frame later than prop updates, which
+                  flashed dark bands when a multi-segment pour landed */}
+              {Array.from({ length: BOTTLE_CAPACITY - 1 }, (_, i) => {
+                const filled = i < n - 1;
+                const color = (filled ? bottle.segments[i] : bottle.segments[0]) ?? 'ruby';
                 const top = fillBottom - (i + 1) * segH;
                 return (
-                  <Rect key={i} x={0} y={top} width={width} height={segH + 1}>
+                  <Rect key={i} x={0} y={top} width={width} height={segH + 1} opacity={filled ? 1 : 0}>
                     <LinearGradient start={vec(gx0, 0)} end={vec(gx1, 0)} {...cylinderGradient(color)} />
                   </Rect>
                 );
               })}
-              {/* top segment: tilting surface path + bright top lip */}
-              {n > 0 && (
-                <>
-                  <Path path={surfacePath}>
-                    <LinearGradient
-                      start={vec(gx0, 0)}
-                      end={vec(gx1, 0)}
-                      {...cylinderGradient(bottle.segments[n - 1])}
-                    />
-                  </Path>
-                  <Path
-                    path={surfaceEdgePath}
-                    style="stroke"
-                    strokeWidth={2.5}
-                    color="rgba(255,255,255,0.30)"
-                  />
-                </>
-              )}
+              {/* top segment: tilting surface path + bright top lip (paths go empty
+                  when n=0, so these nodes are permanent too) */}
+              <Path path={surfacePath}>
+                <LinearGradient
+                  start={vec(gx0, 0)}
+                  end={vec(gx1, 0)}
+                  {...cylinderGradient(bottle.segments[n - 1] ?? 'ruby')}
+                />
+              </Path>
+              <Path
+                path={surfaceEdgePath}
+                style="stroke"
+                strokeWidth={2.5}
+                color="rgba(255,255,255,0.30)"
+              />
             </Group>
             <VialShine w={width} h={height} />
             <VialNeck w={width} />

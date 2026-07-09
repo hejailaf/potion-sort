@@ -19,14 +19,15 @@ import { measureBottle } from './bottleLayout';
 import {
   KICK_LAND,
   liquidThetas,
+  pooledPlanes,
   SLOSH_ENABLED,
   SLOSH_SPRING,
   stepSlosh,
   SWAY_CLAMP,
   SWAY_GAIN,
 } from './liquid';
-import { cylinderGradient, LIQUID_LIGHT, mouthPoint, segmentGeometry, vialPaths } from './vial';
-import { VialInside, VialNeck, VialShine } from './VialGlass';
+import { cylinderGradient, LIQUID_LIGHT, mouthPoint, rgba, segmentGeometry, vialPaths } from './vial';
+import { VialEdgeShading, VialInside, VialNeck, VialShine } from './VialGlass';
 
 const FLY_MS = 420;
 /** first quarter of the fly phase is anticipation: a dip + wind-up, no travel */
@@ -261,27 +262,37 @@ function PourDrawing({
   const liquidRotate = useDerivedValue(() => [{ rotate: SLOSH_ENABLED ? mu.value : -tilt.value }]);
   const origin = useMemo(() => vec(m.x, m.y), [m.x, m.y]);
 
-  // ---- liquid inside the flying bottle: world-level bands pooling at the mouth ----
-  // L: how far below the mouth the lowest interior point sits; k: band thickness.
-  // ponytail: eyeballed geometry, not volume-conserving — reads right at game speed.
-  const bandGeo = useDerivedValue(() => {
+  // ---- liquid inside the flying bottle: pooled half-planes ----
+  // each color is "everything below my surface plane"; the top color paints
+  // first and lower colors cover it below their planes, so the bottom color
+  // floods the belly — no slab edges at any angle, area roughly conserved
+  const sIn = (3 * s.w) / 58;
+  const wIn = s.w - 2 * sIn;
+  const poolGeo = useMemo(
+    () => ({ x0: sIn, y0: segS.fillTop, x1: s.w - sIn, y1: segS.fillBottom, mx: m.x, my: m.y }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+  const baseAreas = useMemo(
+    () => baseSegments.map(() => segS.segH * wIn),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+  const pourArea0 = move.count * segS.segH * wIn;
+  const planes = useDerivedValue(() => {
     const p = progress.value;
-    const th = Math.abs(tilt.value);
-    const sin = Math.sin(th);
-    const L = (s.h * 0.97 - m.y) * Math.max(Math.cos(th), 0) + s.w * 0.45 * sin;
-    const k = segS.segH + (s.w * 0.34 - segS.segH) * sin;
-    const pourLeft = move.count * k * (p < 1 ? 1 : Math.max(0, 2 - p));
-    return { L, k, pourLeft };
+    const pourLeft = p < 1 ? 1 : Math.max(0, 2 - p);
+    return pooledPlanes(tilt.value, poolGeo, baseAreas, pourArea0 * pourLeft);
   });
-  const pourBandY = useDerivedValue(() => m.y + bandGeo.value.L - bandGeo.value.pourLeft);
-  const pourBandH = useDerivedValue(() => bandGeo.value.pourLeft + 1);
-  const srcSurfaceY = useDerivedValue(
-    () => m.y + bandGeo.value.L - bandGeo.value.pourLeft - bandCount * bandGeo.value.k - s.w * 0.13,
-  );
-  const srcSurfaceOpacity = useDerivedValue(() =>
-    bandGeo.value.pourLeft > 0.5 || bandCount > 0 ? 1 : 0,
-  );
-  const surfaceColor = bandCount > 0 ? LIQUID_LIGHT[baseSegments[0]] : bright;
+  // meniscus lip riding the topmost surface plane
+  const srcLipPath = useDerivedValue(() => {
+    const path = Skia.Path.Make();
+    const v = planes.value[planes.value.length - 1];
+    const y = m.y + v;
+    path.moveTo(m.x - s.w * 0.8, y);
+    path.quadTo(m.x, y + s.w * 0.03, m.x + s.w * 0.8, y);
+    return path;
+  });
 
   // ---- stream, fill, splash ----
   const streamGate = useDerivedValue(() => {
@@ -296,6 +307,20 @@ function PourDrawing({
   const fillLocalH = useDerivedValue(
     () => fillH.value + (pour.tgtBefore.segments.length > 0 ? segT.segH * 0.4 : 2),
   );
+  // the filled region, for re-drawing the glass gloss over just the new liquid
+  const fillClipPath = useDerivedValue(() => {
+    const p = Skia.Path.Make();
+    p.addRect(Skia.XYWHRect(0, fillLocalY.value, t.w, fillLocalH.value + 2));
+    return p;
+  });
+  // meniscus lip on the rising surface (target-local coords)
+  const fillLipPath = useDerivedValue(() => {
+    const p = Skia.Path.Make();
+    const y = fillLocalY.value;
+    p.moveTo(0, y);
+    p.quadTo(t.w / 2, y + t.w * 0.03, t.w, y);
+    return p;
+  });
 
   // the pouring lip corner: the mouth edge (±9·s in mock units, the neck
   // half-opening) rotated by the glass tilt — the stream hangs from the lip
@@ -322,7 +347,7 @@ function PourDrawing({
   const streamStart = useDerivedValue(() => vec(exitX.value, exitY.value));
   const streamEnd = useDerivedValue(() => vec(exitX.value, surfaceY.value));
 
-  const splashW = useDerivedValue(() => t.w * (0.3 + 0.08 * Math.sin(progress.value * 26)));
+  const splashW = useDerivedValue(() => t.w * (0.26 + 0.06 * Math.sin(progress.value * 26)));
   const splashX = useDerivedValue(() => tMouthX - splashW.value / 2);
   const splashY = useDerivedValue(() => surfaceY.value - splashW.value * 0.16);
   const splashH = useDerivedValue(() => splashW.value * 0.32);
@@ -358,7 +383,14 @@ function PourDrawing({
         <Rect x={1} y={fillLocalY} width={t.w - 2} height={fillLocalH}>
           <LinearGradient start={vec(gx0t, 0)} end={vec(t.w - gx0t, 0)} {...cylinderGradient(move.color)} />
         </Rect>
-        <Path path={wavePath} color={bright} />
+        <Path path={wavePath} color={rgba(bright, 0.5)} />
+        <Path path={fillLipPath} style="stroke" strokeWidth={2.5} color="rgba(255,255,255,0.30)" />
+        {/* the new liquid gets the same glass gloss as resting liquid — without
+            this the fill reads as a flat sticker until the pour lands */}
+        <Group clip={fillClipPath}>
+          <VialEdgeShading w={t.w} h={t.h} />
+          <VialShine w={t.w} h={t.h} />
+        </Group>
       </Group>
 
       {/* stream falls free through the open neck; the splash garnish stays inside the glass */}
@@ -367,21 +399,18 @@ function PourDrawing({
           <LinearGradient start={streamStart} end={streamEnd} colors={[bright, color]} />
         </Path>
         <Group transform={targetTransform} clip={interiorT}>
-          {/* clip is target-local; undo the translate so the world-coord math below still holds */}
+          {/* clip is target-local; undo the translate so the world-coord math below still holds.
+              soft alphas: the garnish tints the surface instead of painting over it */}
           <Group transform={backToWorld}>
-            <Oval x={splashX} y={splashY} width={splashW} height={splashH} color={bright} />
-            <Ripple index={0} progress={progress} surfaceY={surfaceY} cx={tMouthX} w={t.w} color={bright} />
-            <Ripple index={1} progress={progress} surfaceY={surfaceY} cx={tMouthX} w={t.w} color={bright} />
-            <Droplet index={0} progress={progress} surfaceY={surfaceY} cx={tMouthX} w={t.w} color={bright} />
-            <Droplet index={1} progress={progress} surfaceY={surfaceY} cx={tMouthX} w={t.w} color={bright} />
-            <Droplet index={2} progress={progress} surfaceY={surfaceY} cx={tMouthX} w={t.w} color={bright} />
+            <Oval x={splashX} y={splashY} width={splashW} height={splashH} color={rgba(bright, 0.55)} />
+            <Ripple index={0} progress={progress} surfaceY={surfaceY} cx={tMouthX} w={t.w} color={rgba(bright, 0.5)} />
+            <Ripple index={1} progress={progress} surfaceY={surfaceY} cx={tMouthX} w={t.w} color={rgba(bright, 0.5)} />
+            <Droplet index={0} progress={progress} surfaceY={surfaceY} cx={tMouthX} w={t.w} color={color} />
+            <Droplet index={1} progress={progress} surfaceY={surfaceY} cx={tMouthX} w={t.w} color={color} />
+            <Droplet index={2} progress={progress} surfaceY={surfaceY} cx={tMouthX} w={t.w} color={color} />
           </Group>
         </Group>
       </Group>
-
-      {/* droplets shed along the flight arc */}
-      <FlightDrip index={0} progress={progress} q={q} sx={startX} sy={startY} cx={ctrlX} cy={ctrlY} hx={hoverX} hy={hoverY} color={bright} />
-      <FlightDrip index={1} progress={progress} q={q} sx={startX} sy={startY} cx={ctrlX} cy={ctrlY} hx={hoverX} hy={hoverY} color={bright} />
 
       {/* the flying source vial */}
       <Group transform={outerTransform}>
@@ -389,35 +418,16 @@ function PourDrawing({
           <VialInside w={s.w} h={s.h} />
           <Group clip={interiorS}>
             <Group origin={origin} transform={liquidRotate}>
-              {/* the pouring color pools at the mouth and drains first */}
-              <Rect x={m.x - s.h * 1.2} y={pourBandY} width={s.h * 2.4} height={pourBandH}>
-                <LinearGradient
-                  start={vec(m.x - s.w * 0.55, 0)}
-                  end={vec(m.x + s.w * 0.55, 0)}
-                  {...cylinderGradient(move.color)}
-                />
-              </Rect>
-              {baseSegments.map((c, i) => (
-                <SourceBand
-                  key={i}
-                  color={c}
-                  index={i}
-                  bandCount={bandCount}
-                  bandGeo={bandGeo}
-                  mx={m.x}
-                  my={m.y}
-                  span={s.h}
-                  w={s.w}
-                />
-              ))}
-              <Oval
-                x={m.x - s.w * 0.44}
-                y={srcSurfaceY}
-                width={s.w * 0.88}
-                height={s.w * 0.26}
-                color={surfaceColor}
-                opacity={srcSurfaceOpacity}
-              />
+              {/* painter's algorithm: top (pouring) color first, each lower color
+                  covers everything below its own plane — the bottom color floods
+                  the belly, so there are no slab edges at any angle */}
+              <PooledBand color={move.color} index={bandCount} planes={planes} mx={m.x} my={m.y} span={s.h * 1.4} w={s.w} />
+              {baseSegments
+                .map((c, i) => (
+                  <PooledBand key={i} color={c} index={i} planes={planes} mx={m.x} my={m.y} span={s.h * 1.4} w={s.w} />
+                ))
+                .reverse()}
+              <Path path={srcLipPath} style="stroke" strokeWidth={2.5} color="rgba(255,255,255,0.30)" />
             </Group>
           </Group>
           <VialShine w={s.w} h={s.h} />
@@ -429,12 +439,11 @@ function PourDrawing({
   );
 }
 
-/** one remaining segment inside the tilted source, stacked away from the mouth */
-function SourceBand({
+/** one liquid layer in the flying bottle: everything below its surface plane */
+function PooledBand({
   color,
   index,
-  bandCount,
-  bandGeo,
+  planes,
   mx,
   my,
   span,
@@ -442,65 +451,18 @@ function SourceBand({
 }: {
   color: Color;
   index: number;
-  bandCount: number;
-  bandGeo: SharedValue<{ L: number; k: number; pourLeft: number }>;
+  planes: SharedValue<number[]>;
   mx: number;
   my: number;
   span: number;
   w: number;
 }) {
-  const y = useDerivedValue(
-    () => my + bandGeo.value.L - bandGeo.value.pourLeft - (bandCount - index) * bandGeo.value.k,
-  );
-  const h = useDerivedValue(() => bandGeo.value.k + 1);
+  const y = useDerivedValue(() => my + planes.value[index]);
   return (
-    <Rect x={mx - span * 1.2} y={y} width={span * 2.4} height={h}>
+    <Rect x={mx - span} y={y} width={2 * span} height={2 * span}>
       <LinearGradient start={vec(mx - w * 0.55, 0)} end={vec(mx + w * 0.55, 0)} {...cylinderGradient(color)} />
     </Rect>
   );
-}
-
-/** a droplet lagging behind the flying bottle, sagging under gravity and fading */
-function FlightDrip({
-  index,
-  progress,
-  q,
-  sx,
-  sy,
-  cx,
-  cy,
-  hx,
-  hy,
-  color,
-}: {
-  index: number;
-  progress: SharedValue<number>;
-  q: SharedValue<number>;
-  sx: number;
-  sy: number;
-  cx: number;
-  cy: number;
-  hx: number;
-  hy: number;
-  color: string;
-}) {
-  const lagQ = useDerivedValue(() => Math.max(0, q.value - 0.12 * (index + 1)));
-  const dripX = useDerivedValue(() => {
-    const qq = lagQ.value;
-    const u = 1 - qq;
-    return u * u * sx + 2 * u * qq * cx + qq * qq * hx;
-  });
-  const dripY = useDerivedValue(() => {
-    const qq = lagQ.value;
-    const u = 1 - qq;
-    return u * u * sy + 2 * u * qq * cy + qq * qq * hy + (q.value - lagQ.value) * 60;
-  });
-  const opacity = useDerivedValue(() => {
-    const p = progress.value;
-    if (p <= ANT || p >= 1 || q.value === lagQ.value) return 0;
-    return 0.8 - (2.5 * (q.value - lagQ.value)) / (0.12 * (index + 1) + 0.12);
-  });
-  return <Circle cx={dripX} cy={dripY} r={2 - index * 0.5} color={color} opacity={opacity} />;
 }
 
 /** expanding ripple ring on the target surface around the stream's impact point */

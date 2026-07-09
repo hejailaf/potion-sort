@@ -1,4 +1,4 @@
-import { stepSlosh, surfaceEdge, THETA_CLAMP } from '../liquid';
+import { pooledPlanes, stepSlosh, surfaceEdge, THETA_CLAMP } from '../liquid';
 
 /** run the integrator n steps at a fixed dt against a constant glass tilt */
 function run(tilt: number, n: number, dt = 0.016, mu = 0, vel = 0): { mu: number; vel: number; trace: number[] } {
@@ -40,6 +40,38 @@ describe('stepSlosh (flight liquid integrator)', () => {
     const { trace } = run(1.75, 600, 0.032);
     expect(trace.every((m) => Math.abs(m) < 3)).toBe(true);
     expect(trace[trace.length - 1]).toBeCloseTo(-1.75, 1);
+  });
+});
+
+describe('pooledPlanes (tilted-bottle liquid layers)', () => {
+  // ~72pt bottle: interior x 4..68, y 25..221, mouth (36, 13)
+  const GEO = { x0: 4, y0: 25, x1: 68, y1: 221, mx: 36, my: 13 };
+  const segH = (GEO.y1 - GEO.y0) / 4;
+  const wIn = GEO.x1 - GEO.x0;
+  const areas = [segH * wIn, segH * wIn];
+
+  it('at rest (phi=0) stacks exact segment heights from the interior bottom', () => {
+    const p = pooledPlanes(0, GEO, areas, segH * wIn);
+    const vBottom = GEO.y1 - GEO.my;
+    expect(p[0]).toBeCloseTo(vBottom - segH, 6);
+    expect(p[1]).toBeCloseTo(vBottom - 2 * segH, 6);
+    expect(p[2]).toBeCloseTo(vBottom - 3 * segH, 6);
+  });
+
+  it('planes stack strictly upward at any tilt', () => {
+    for (const phi of [0.4, 1.2, 1.9, -1.2]) {
+      const p = pooledPlanes(phi, GEO, areas, segH * wIn * 0.5);
+      for (let i = 1; i < p.length; i++) expect(p[i]).toBeLessThan(p[i - 1]);
+    }
+  });
+
+  it('pouring area raises the surface plane continuously', () => {
+    const empty = pooledPlanes(1.5, GEO, areas, 0);
+    const half = pooledPlanes(1.5, GEO, areas, segH * wIn * 0.5);
+    const full = pooledPlanes(1.5, GEO, areas, segH * wIn);
+    expect(empty[2]).toBeCloseTo(empty[1], 6); // drained: zero-height stripe
+    expect(half[2]).toBeLessThan(empty[2]);
+    expect(full[2]).toBeLessThan(half[2]);
   });
 });
 

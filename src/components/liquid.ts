@@ -67,6 +67,53 @@ export function surfaceEdge(w: number, ySurf: number, theta: number): SurfaceEdg
   return { yL, yR, cpy: (yL + yR) / 2 + w * 0.05 };
 }
 
+/** interior rect + mouth point of a bottle, in glass-local coords */
+export interface PoolGeo {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  mx: number;
+  my: number;
+}
+
+/**
+ * Surface planes for liquid pooling in a tilted bottle. Each color layer is a
+ * half-plane ("everything below my surface"); painting top color first lets
+ * lower colors flood the belly — no slab edges at any angle. Planes conserve
+ * area: layer thickness = area / average chord width of the tilted interior.
+ * Returns one plane per base layer (bottom→top) plus the pouring layer's,
+ * as world-vertical offsets below the mouth. At phi=0 this is exact segment
+ * stacking, so the flying liquid matches the resting bottle at pickup/landing.
+ */
+export function pooledPlanes(
+  phi: number,
+  g: PoolGeo,
+  baseAreas: number[],
+  pourArea: number,
+): number[] {
+  'worklet';
+  const sin = Math.sin(phi);
+  const cos = Math.cos(phi);
+  const v1 = sin * (g.x0 - g.mx) + cos * (g.y0 - g.my);
+  const v2 = sin * (g.x1 - g.mx) + cos * (g.y0 - g.my);
+  const v3 = sin * (g.x1 - g.mx) + cos * (g.y1 - g.my);
+  const v4 = sin * (g.x0 - g.mx) + cos * (g.y1 - g.my);
+  const vMax = Math.max(v1, v2, v3, v4);
+  const vMin = Math.min(v1, v2, v3, v4);
+  const extent = Math.max(vMax - vMin, 1e-6);
+  const wBar = ((g.x1 - g.x0) * (g.y1 - g.y0)) / extent;
+  const out: number[] = [];
+  let acc = 0;
+  for (let i = 0; i < baseAreas.length; i++) {
+    acc += baseAreas[i];
+    out.push(vMax - acc / wBar);
+  }
+  acc += pourArea;
+  out.push(vMax - acc / wBar);
+  return out;
+}
+
 /** board bottles' surface-tilt shared values, keyed by bottle id — the pour
  *  overlay kicks these on landing so bottles reappear already sloshing */
 export const liquidThetas = new Map<string, SharedValue<number>>();
