@@ -21,6 +21,8 @@ export interface ActivePour {
   completes: boolean;
   /** post-settle mystery watermark of the source — the flying clone masks bands below it */
   srcHidden: number;
+  /** the target has finished filling (top-off) — board shows the live bottle, overlay stops its fill */
+  toppedOff: boolean;
 }
 
 let pourSeq = 0;
@@ -91,6 +93,8 @@ interface GameState {
   /** deal (or resume) today's seeded daily-challenge board */
   loadDaily: () => void;
   tapBottle: (id: string) => void;
+  /** the target finished filling: reveal the live (possibly corked) bottle + fire completion effects */
+  markToppedOff: (pourId: number) => void;
   finishPour: (pourId: number) => void;
   restart: () => void;
   /** give up the current board: costs a life (no-op at 0 — never traps the player) and re-deals it */
@@ -219,6 +223,7 @@ export const useGameStore = create<GameState>()(
             tgtBefore: tapped,
             completes: completed,
             srcHidden: settled[selectedId] ?? 0,
+            toppedOff: false,
           },
         ],
         history: pushMove(history, result.move),
@@ -229,17 +234,25 @@ export const useGameStore = create<GameState>()(
     });
   },
 
-  finishPour: (pourId) => {
+  // completion effects fire at top-off (mid-animation), while the source vial is
+  // still returning to its seat — the cork/celebration land on the filled target
+  markToppedOff: (pourId) => {
     set((s) => {
       const done = s.activePours.find((p) => p.id === pourId);
-      if (!done) return {}; // stale id after restart/exit: no-op
+      if (!done || done.toppedOff) return {}; // stale id, or already topped off: no-op
       return {
-        activePours: s.activePours.filter((p) => p.id !== pourId),
-        // completion effects fire now — when the corking animation lands
+        activePours: s.activePours.map((p) => (p.id === pourId ? { ...p, toppedOff: true } : p)),
         ...(done.completes
           ? { completionToken: s.completionToken + 1, completedBottleId: done.move.to }
           : {}),
       };
+    });
+  },
+
+  finishPour: (pourId) => {
+    set((s) => {
+      if (!s.activePours.some((p) => p.id === pourId)) return {}; // stale id after restart/exit: no-op
+      return { activePours: s.activePours.filter((p) => p.id !== pourId) };
     });
   },
 

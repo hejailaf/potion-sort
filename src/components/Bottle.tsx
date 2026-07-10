@@ -15,17 +15,9 @@ import { isBottleComplete } from '@/engine/rules';
 import { Bottle as BottleData, BOTTLE_CAPACITY, COLOR_HEX, COLOR_SYMBOL } from '@/engine/types';
 import { useMetaStore } from '@/state/metaStore';
 import { hapticLight, hapticSelect } from '@/sound';
-import { button, font } from '@/theme';
+import { button, font, pour } from '@/theme';
 import { bottleLayouts, bottleRefs } from './bottleLayout';
-import {
-  KICK_DESELECT,
-  KICK_SELECT,
-  KICK_SHAKE,
-  liquidThetas,
-  SLOSH_ENABLED,
-  SLOSH_SPRING,
-  surfaceEdge,
-} from './liquid';
+import { KICK_SHAKE, liquidThetas, SLOSH_ENABLED, SLOSH_SPRING, surfaceEdge } from './liquid';
 import {
   bodyTop,
   cylinderGradient,
@@ -56,14 +48,16 @@ interface BottleProps {
 
 export function Bottle({ bottle, width, selected, hidden, shakeToken, hinted, hiddenCount, onTap }: BottleProps) {
   const height = width * HEIGHT_RATIO;
+  // selected-idle elevation: the same one-segment-fraction lift the flying clone starts from
+  const { fillBottom, segH } = segmentGeometry(width, height, BOTTLE_CAPACITY);
+  const liftPx = pour.selectLiftSeg * segH;
   const ref = useRef<View>(null);
   const lift = useSharedValue(0);
   const shakeX = useSharedValue(0);
   const flash = useSharedValue(0);
   const glow = useSharedValue(0);
-  /** liquid-surface tilt (rad) — sloshes on lift/shake/pour landing, springs level */
+  /** liquid-surface tilt (rad) — sloshes on shake/pour landing, springs level */
   const theta = useSharedValue(0);
-  const wasSelected = useRef(false);
   /** veil fog opacity — fades out when a cork lifts this bottle's veil */
   const veilOpacity = useSharedValue(bottle.veiled ? 1 : 0);
   const wasVeiled = useRef(!!bottle.veiled);
@@ -86,18 +80,13 @@ export function Bottle({ bottle, width, selected, hidden, shakeToken, hinted, hi
   }, [bottle.id, theta]);
 
   useEffect(() => {
-    // rigid glass: a clean lift with no overshoot or deformation
-    lift.value = withTiming(selected ? -height * 0.085 : 0, {
+    // rigid glass: a clean lift with no overshoot, no idle wobble (spec: no slosh on select)
+    lift.value = withTiming(selected ? -liftPx : 0, {
       duration: 180,
       easing: Easing.out(Easing.cubic),
     });
     if (selected) hapticSelect();
-    // liquid inertia: kick the surface on pick-up / put-down (skip the mount run)
-    if (wasSelected.current !== selected && SLOSH_ENABLED) {
-      theta.value = withSpring(0, { ...SLOSH_SPRING, velocity: selected ? KICK_SELECT : KICK_DESELECT });
-    }
-    wasSelected.current = selected;
-  }, [selected, height, lift, theta]);
+  }, [selected, liftPx, lift]);
 
   useEffect(() => {
     if (shakeToken === 0) return;
@@ -165,7 +154,6 @@ export function Bottle({ bottle, width, selected, hidden, shakeToken, hinted, hi
 
   const symbols = useMetaStore((s) => s.colorBlindSymbols);
   const { glass, interior } = vialPaths(width, height);
-  const { fillBottom, segH } = segmentGeometry(width, height, BOTTLE_CAPACITY);
   const n = bottle.segments.length;
   const ySurf = fillBottom - n * segH;
   const complete = isBottleComplete(bottle);

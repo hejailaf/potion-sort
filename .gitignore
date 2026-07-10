@@ -47,3 +47,6 @@ ds-bundle/
 .design-sync/learnings/
 .design-sync/node_modules
 .claude/launch.json
+
+# other AI tools' local mirrors
+/.agents/

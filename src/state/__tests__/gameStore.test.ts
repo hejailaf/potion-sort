@@ -64,12 +64,18 @@ function load(def: LevelDef) {
 }
 
 const tap = (id: string) => useGameStore.getState().tapBottle(id);
+// top-off is the mid-animation moment the target finishes filling (fires completion effects);
+// finish is the later moment the returning source lands (removes the pour)
+const topOffAllPours = () => {
+  for (const p of useGameStore.getState().activePours) useGameStore.getState().markToppedOff(p.id);
+};
 const finishAllPours = () => {
   for (const p of useGameStore.getState().activePours) useGameStore.getState().finishPour(p.id);
 };
 const pour = (from: string, to: string) => {
   tap(from);
   tap(to);
+  topOffAllPours();
   finishAllPours();
 };
 
@@ -197,14 +203,16 @@ describe('gameStore', () => {
     expect(s.activePours).toEqual([]);
   });
 
-  it('bumps the completion token once, when the corking pour finishes', () => {
+  it('bumps the completion token once, at the corking pour top-off', () => {
     load(completionLevel);
     tap('b1');
-    tap('b0'); // ruby onto ruby×3 -> corks b0 when the animation lands
+    tap('b0'); // ruby onto ruby×3 -> corks b0 when the target tops off
     expect(useGameStore.getState().completionToken).toBe(0); // in flight: not yet
-    finishAllPours();
+    topOffAllPours();
     expect(useGameStore.getState().completionToken).toBe(1);
     expect(useGameStore.getState().completedBottleId).toBe('b0');
+    finishAllPours(); // source lands afterwards: nothing more fires
+    expect(useGameStore.getState().completionToken).toBe(1);
     pour('b1', 'b2'); // gold×3 into empty -> nothing completes
     expect(useGameStore.getState().completionToken).toBe(1);
   });
@@ -216,9 +224,9 @@ describe('gameStore', () => {
     tap('b2');
     tap('b3'); // unrelated pour
     const [corking, plain] = useGameStore.getState().activePours;
-    useGameStore.getState().finishPour(plain.id);
+    useGameStore.getState().markToppedOff(plain.id);
     expect(useGameStore.getState().completionToken).toBe(0);
-    useGameStore.getState().finishPour(corking.id);
+    useGameStore.getState().markToppedOff(corking.id);
     expect(useGameStore.getState().completionToken).toBe(1);
     expect(useGameStore.getState().completedBottleId).toBe('b0');
   });

@@ -25,13 +25,15 @@ export function Board() {
       {rows.map((row, r) => (
         <View key={r} style={styles.row}>
           {row.map((bottle) => {
-            // a pour's target stays frozen at its pre-pour fill (the overlay animates
-            // the growth on top); its source is hidden behind the flying clone
-            const asTarget = activePours.find((p) => p.move.to === bottle.id);
+            // a target stays frozen at the earliest still-filling pour's baseline while
+            // the overlay animates the growth on top; once every pour into it has topped
+            // off, show the live (possibly corked) bottle so the cork/celebration appear
+            // while the source vial is still returning. Its source is hidden behind the clone.
+            const filling = activePours.filter((p) => p.move.to === bottle.id && !p.toppedOff);
             return (
               <Bottle
                 key={bottle.id}
-                bottle={asTarget ? asTarget.tgtBefore : bottle}
+                bottle={filling.length > 0 ? filling[0].tgtBefore : bottle}
                 width={bottleWidth}
                 selected={bottle.id === selectedId}
                 hidden={activePours.some((p) => p.move.from === bottle.id)}
