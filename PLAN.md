@@ -14,7 +14,7 @@
 | 3 — Mechanics UI & unlock moments | ✅ done (`3f25ccd`, `a35ea73`, `0720679`) |
 | 4 — Measured pour choreography (per user spec) | ✅ done (`1975bd6`…`82a80e4`); UI polish audit deferred to Phase 4-F |
 | 4-F — UI polish audit & fixes | ✅ done (this commit); Release re-measure closed the Phase 4 open item |
-| 5 — Journey tab rework | pending |
+| 5 — Journey tab rework | ✅ done (this commit) |
 | 6 — Regression, docs close-out, build | pending |
 
 > **Amendment (2026-07-10, user-approved):** one color completes exactly ONE bottle at
@@ -119,14 +119,24 @@ recordings for tab switch, win sequence, and coin-fly (frame-extracted evidence:
 crossfade vs slide, counter hold→tick with splash-on-icon, deal-in stagger mid-entry);
 Release-build celebration measurement above.
 
-## Phase 5 — Journey tab rework
+## Phase 5 — Journey tab rework ✅
 
-- Path with **milestone nodes at every mechanic unlock** (20, 40, 60, future slots as locked "???").
-- Locked = silhouette + level requirement; unlocked = icon + tap-to-recall mini explainer (reuses Phase 3 interstitial content).
-- Current-level indicator, completed styling, scroll-to-current on open.
-- Fully data-driven from `progression.ts` — a future level-60 mechanic must need zero Journey code changes.
+Shipped (user decisions: full road to the tease slot; MiniVial Skia art as milestone
+icons): journey.tsx renders the whole road (level 1 up to a "???" tease node at the
+next 20-cadence boundary past the last unlock and the player) with milestone nodes
+derived ONLY from `MECHANIC_UNLOCKS` + the interstitial's exported `MECHANIC_COPY` —
+a future mechanic needs zero Journey changes. Unlocked milestone = gold disc +
+MiniVial (`steps[0].art`, new `width` prop, 23px) + title label + tap-to-recall
+(`UnlockInterstitial` with new `recall` prop — plain title, onDone only closes,
+never touches `seenUnlocks`); locked = 0.35-opacity silhouette + `Lv N` label;
+scroll-to-current via fixed 112px slots + arithmetic `contentOffset` (no measure).
+`__DEV__` Journey-state injector chips (1/25/45, currentLevel only) in SettingsSheet.
 
-**Acceptance:** correct rendering for fresh / level-25 / level-45 saves (via debug state injector); milestones come from progression data only.
+**Acceptance met:** 173 tests + tsc + eslint green; simulator screenshots for
+fresh (road + ??? + opens at level 1), 25 (veiled milestone + recall modal open/
+close, parks a third down), 45 (mystery milestone), and 59 (locked chained
+silhouette + seal badge + Lv 60). Recall latch safety is structural — journey.tsx
+never imports `markUnlockSeen`.
 
 ## Phase 6 — Regression, docs close-out, build
 

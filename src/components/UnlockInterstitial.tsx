@@ -27,11 +27,13 @@ interface MiniVialProps {
   mysteryBelow?: number;
   /** wax-seal count shown on the bottle */
   seal?: number;
+  /** bottle width in px (height follows HEIGHT_RATIO); default suits the explainer card */
+  width?: number;
 }
 
 /** A static, pixel-consistent thumbnail of a game vial for the explainer steps. */
-function MiniVial({ segments = [], veiled, corked, mysteryBelow = 0, seal }: MiniVialProps) {
-  const w = MINI_W;
+export function MiniVial({ segments = [], veiled, corked, mysteryBelow = 0, seal, width = MINI_W }: MiniVialProps) {
+  const w = width;
   const h = w * HEIGHT_RATIO;
   const { interior } = vialPaths(w, h);
   const { fillBottom, segH } = segmentGeometry(w, h, 4);
@@ -65,14 +67,14 @@ function MiniVial({ segments = [], veiled, corked, mysteryBelow = 0, seal }: Min
       {Array.from({ length: mysteryBelow }, (_, i) => (
         <Text
           key={i}
-          style={[styles.qs, { top: fillBottom - (i + 1) * segH + segH / 2 - 8 }]}
+          style={[styles.qs, { top: fillBottom - (i + 1) * segH + segH / 2 - w * 0.2, fontSize: w * 0.3 }]}
         >
           ?
         </Text>
       ))}
       {seal !== undefined && seal > 0 && (
-        <View style={[styles.seal, { top: h * 0.42 }]}>
-          <Text style={styles.sealText}>{seal}</Text>
+        <View style={[styles.seal, { top: h * 0.42, width: w * 0.55, height: w * 0.55, borderRadius: w * 0.275 }]}>
+          <Text style={[styles.sealText, { fontSize: w * 0.275 }]}>{seal}</Text>
         </View>
       )}
     </View>
@@ -84,7 +86,7 @@ interface Step {
   text: string;
 }
 
-const COPY: Record<MechanicKind, { title: string; steps: Step[] }> = {
+export const MECHANIC_COPY: Record<MechanicKind, { title: string; steps: Step[] }> = {
   veiled: {
     title: 'Veiled Bottles',
     steps: [
@@ -112,17 +114,19 @@ const COPY: Record<MechanicKind, { title: string; steps: Step[] }> = {
 
 interface UnlockInterstitialProps {
   kind: MechanicKind;
+  /** re-viewing from the Journey map — plain title, no "New:" fanfare */
+  recall?: boolean;
   /** latches seenUnlocks — fired on Got it, X, or backdrop */
   onDone: () => void;
 }
 
 /** One-time celebratory explainer shown the first time a mechanic's level loads. */
-export function UnlockInterstitial({ kind, onDone }: UnlockInterstitialProps) {
+export function UnlockInterstitial({ kind, recall, onDone }: UnlockInterstitialProps) {
   const [step, setStep] = useState(0);
-  const { title, steps } = COPY[kind];
+  const { title, steps } = MECHANIC_COPY[kind];
   const last = step === steps.length - 1;
   return (
-    <GameModal visible title={`New: ${title}!`} onClose={onDone}>
+    <GameModal visible title={recall ? title : `New: ${title}!`} onClose={onDone}>
       <View style={styles.card}>
         <MiniVial {...steps[step].art} />
         <Text style={styles.text}>{steps[step].text}</Text>
@@ -188,14 +192,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: 'rgba(255,255,255,0.8)',
     fontWeight: '900',
-    fontSize: 12,
   },
   seal: {
     position: 'absolute',
     alignSelf: 'center',
-    width: 22,
-    height: 22,
-    borderRadius: 11,
     backgroundColor: button.red.rim,
     borderWidth: 1.5,
     borderColor: '#C07F1C',
@@ -205,6 +205,5 @@ const styles = StyleSheet.create({
   sealText: {
     color: '#FFE3A6',
     fontFamily: font.bold,
-    fontSize: 11,
   },
 });

@@ -53,6 +53,25 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
             </View>
           </View>
         )}
+        {__DEV__ && (
+          <View style={styles.row}>
+            <Text style={styles.label}>Dev: Journey state</Text>
+            <View style={styles.devRow}>
+              {[1, 25, 45].map((n) => (
+                <Pressable
+                  key={n}
+                  style={styles.devChip}
+                  onPress={() => {
+                    useMetaStore.setState({ currentLevel: n });
+                    onClose();
+                  }}
+                >
+                  <Text style={styles.devChipText}>{n}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        )}
       </View>
       <GameButton label="Done" variant="green" onPress={onClose} />
     </GameModal>
