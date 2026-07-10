@@ -8,14 +8,14 @@
 
 | Phase | State |
 |---|---|
-| 0 — Repo audit & decluttering | ✅ done (`3c77acd`, `33737e0`, `a1822d6`; see AUDIT.md) |
+| 0 — Repo audit & decluttering | ✅ done (`3c77acd`, `33737e0`, `a1822d6`; AUDIT.md deleted in Phase 6 as planned) |
 | 1 — Documentation reset | ✅ done (this commit) |
 | 2 — Mechanics framework (engine) | ✅ done (engine core `c715432` + integration commit) |
 | 3 — Mechanics UI & unlock moments | ✅ done (`3f25ccd`, `a35ea73`, `0720679`) |
 | 4 — Measured pour choreography (per user spec) | ✅ done (`1975bd6`…`82a80e4`); UI polish audit deferred to Phase 4-F |
 | 4-F — UI polish audit & fixes | ✅ done (this commit); Release re-measure closed the Phase 4 open item |
 | 5 — Journey tab rework | ✅ done (this commit) |
-| 6 — Regression, docs close-out, build | pending |
+| 6 — Regression, docs close-out, build | ✅ done (this commit) — playtest 0 bugs, docs current, 1.3.0 EAS build |
 
 > **Amendment (2026-07-10, user-approved):** one color completes exactly ONE bottle at
 > every tier (tested invariant). Palette grew 8 → 10 (`ivory`, `umber`); difficulty curve

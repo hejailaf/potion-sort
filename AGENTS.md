@@ -24,8 +24,11 @@ else is TypeScript.
 - UI chrome colors, radii, fonts, and shared timings come from **`src/theme.ts` tokens**.
   Skia liquid/glass art constants deliberately live with their components (vial.ts) — don't
   force them into the theme.
-- Level modifier system: <!-- finalize: Phase 6 --> designed in v1.3 Phase 2 (`PLAN.md`);
-  documented here once it lands.
+- **Level modifier system** (shipped v1.3): `LevelDef.modifiers` (`veiled`/`mystery`/
+  `chained`) resolved by the engine (`rules.ts`, `solver.ts` via `Bottle.veiled`/`.locks`);
+  `progression.ts`'s `MECHANIC_UNLOCKS` maps unlock levels to mechanics as data. New
+  mechanic = engine feature + tests → renderer → one `MECHANIC_UNLOCKS` + `MECHANIC_COPY`
+  entry — Journey and the unlock interstitial light up automatically.
 
 ## Commands
 
@@ -57,3 +60,7 @@ else is TypeScript.
 - A full-screen Skia `Canvas` swallows touches — wrap in `pointerEvents="none"`.
 - Reanimated spring completion callbacks fire ~0.5s after visual arrival — use
   `withTiming` for hand-offs that gate input.
+- Inactive `react-native-screens` screens lay out with safe-area insets of 0 — a
+  `measureInWindow` snapshot taken mid route-transition is truthful-but-stale (layout
+  reflows on re-attach); wait for a stability window longer than the transition before
+  trusting it (CoinFly, Phase 4-F).

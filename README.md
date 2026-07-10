@@ -5,7 +5,8 @@ candlelit workshop until every vial holds a single color, then cork it. Lives, b
 (undo / shuffle / extra bottle / hint), a daily challenge, Game Center, and an endless
 seeded level generator with a difficulty ramp.
 
-**Status:** v1.2.0 on TestFlight · v1.3 in development (see [PLAN.md](PLAN.md)).
+**Status:** v1.3.0 on TestFlight (see [PLAN.md](PLAN.md)). A public App Store release is a
+separate, metrics-gated decision.
 
 ## The rules
 
@@ -34,7 +35,7 @@ on a device or TestFlight (they fail soft everywhere else — by design).
 
 | Script | What |
 |---|---|
-| `npm test` | Jest (engine + store logic, ~110 tests in `src/**/__tests__/`) |
+| `npm test` | Jest (engine + store logic, ~175 tests in `src/**/__tests__/`) |
 | `npm run typecheck` | `tsc --noEmit` (strict) |
 | `npm run lint` | ESLint (zero warnings allowed) |
 
@@ -76,15 +77,24 @@ before a single pixel is drawn.
 
 ## How to add a new mechanic
 
-<!-- finalize: Phase 2/6 — the modifier framework lands in v1.3 Phase 2; complete this
-section then with the real API and a worked example. -->
+v1.3 shipped a generic **level modifier system**: `LevelDef.modifiers` is a typed,
+serializable array (`veiled` / `mystery` / `chained` today, `src/engine/types.ts`); the
+engine resolves all modifier behavior — pour legality (`rules.ts`), solvability
+(`solver.ts`'s canonical key + DFS) — and `src/engine/progression.ts` maps unlock levels to
+mechanics as data (`MECHANIC_UNLOCKS`, `modifiersFor`, `RAMP`). The UI only renders
+modifier state.
 
-v1.3 introduces a generic **level modifier system**: levels carry a typed, serializable
-`modifiers` array, the engine resolves modifier behavior (pour legality, reveals,
-solvability), the UI only renders modifier state, and `src/engine/progression.ts` maps
-unlock levels to mechanics as data. Once it ships, adding a mechanic will be: implement the
-modifier in the engine with tests, add its renderer, and add one row to the progression
-map. Until then, see [PLAN.md](PLAN.md) Phase 2 for the design.
+A fourth mechanic is a 3-step recipe:
+
+1. **Engine** — extend the `Modifier` union, apply it in `generator.ts`'s
+   `createBottles`, `rules.ts`'s pour legality, and `solver.ts`'s canonical key, with tests.
+2. **UI** — render the new bottle state in `Bottle.tsx` / `PourOverlay.tsx` if it needs
+   visuals beyond what `MiniVial` already draws.
+3. **Register** — add one `MECHANIC_UNLOCKS` entry (unlock level) and one `MECHANIC_COPY`
+   entry (`UnlockInterstitial.tsx`: title + explainer steps).
+
+Step 3 is the whole integration: the unlock interstitial, the first-level `MechanicHint`,
+and the Journey milestone all derive from those two maps — no further changes.
 
 ## Docs map
 
@@ -92,4 +102,5 @@ map. Until then, see [PLAN.md](PLAN.md) Phase 2 for the design.
 - [docs/V1.3_BRIEF.md](docs/V1.3_BRIEF.md) — the v1.3 spec
 - [docs/PLAN_v1.md](docs/PLAN_v1.md) — archived v1 plan (core-mechanics design-of-record)
 - [PLAYTEST.md](PLAYTEST.md) — the simulator playtest protocol
+- [RELEASE_NOTES.md](RELEASE_NOTES.md) — what shipped, by version
 - [AGENTS.md](AGENTS.md) — working brief for AI-assisted sessions
