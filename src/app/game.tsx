@@ -111,6 +111,7 @@ export default function GameScreen() {
       <WinOverlay />
       {unlockKind !== null && (
         <UnlockInterstitial
+          key={unlockKind} // remount when a second unlock is pending — resets the step index
           kind={unlockKind}
           onDone={() => useMetaStore.getState().markUnlockSeen(unlockKind)}
         />
