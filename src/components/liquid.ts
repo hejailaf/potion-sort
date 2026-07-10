@@ -9,8 +9,10 @@ import type { SharedValue } from 'react-native-reanimated';
  *  frame, because there the spring target (-tilt) moves continuously.
  */
 
-/** kill switch: false → flat surfaces + the old rigid counter-rotation */
-export const SLOSH_ENABLED = true;
+/** kill switch: the measured reference has RIGID liquid — the surface stays
+ *  exactly screen-horizontal via -tilt counter-rotation, so this is false.
+ *  The slosh system below is retained behind this switch for possible future use. */
+export const SLOSH_ENABLED = false;
 
 /** board-bottle slosh: heavy fluid (ζ≈0.67, ~0.7s damped period) — one soft swing */
 export const SLOSH_SPRING = { mass: 1, stiffness: 80, damping: 12 } as const;

@@ -1,4 +1,4 @@
-import { Canvas, Circle, Group, LinearGradient, Oval, Path, Rect, Skia, vec } from '@shopify/react-native-skia';
+import { Canvas, Group, LinearGradient, Oval, Path, Rect, Skia, vec } from '@shopify/react-native-skia';
 import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import {
@@ -398,43 +398,18 @@ function PourDrawing({
     const ey = exitY.value;
     // tail: the stream's foot lifts from the surface toward the lip (retracts upward)
     const by = surfaceY.value + (ey - surfaceY.value) * streamRetract.value;
-    // gravity: the stream falls STRAIGHT DOWN and thins as it accelerates; width breathes slightly
-    const wob = 0.5 * Math.sin(elapsed.value * 0.05);
+    // gravity: the stream falls STRAIGHT DOWN and thins as it accelerates (rigid — steady edges)
     const halfTop = screenW * pourTokens.streamWidthFrac * 0.5;
     const halfBot = halfTop * 0.6;
-    path.moveTo(ex - halfTop - wob, ey);
+    path.moveTo(ex - halfTop, ey);
     path.lineTo(ex - halfBot, by);
     path.lineTo(ex + halfBot, by);
-    path.lineTo(ex + halfTop + wob, ey);
+    path.lineTo(ex + halfTop, ey);
     path.close();
     return path;
   });
   const streamStart = useDerivedValue(() => vec(exitX.value, exitY.value));
   const streamEnd = useDerivedValue(() => vec(exitX.value, surfaceY.value));
-
-  const splashW = useDerivedValue(() => t.w * (0.26 + 0.06 * Math.sin(elapsed.value * 0.03)));
-  const splashX = useDerivedValue(() => exitX.value - splashW.value / 2);
-  const splashY = useDerivedValue(() => surfaceY.value - splashW.value * 0.16);
-  const splashH = useDerivedValue(() => splashW.value * 0.32);
-
-  // rising fill surface: a slight wave radiating from the impact point
-  const wavePath = useDerivedValue(() => {
-    const path = Skia.Path.Make();
-    if (streamGate.value <= 0) return path;
-    const cxL = exitX.value - t.x;
-    const amp = 2.5 * streamGate.value * (0.7 + 0.3 * Math.sin(elapsed.value * 0.03));
-    const yS = surfaceY.value - t.y - t.w * 0.1;
-    const band = t.w * 0.24;
-    path.moveTo(0, yS + amp * Math.cos((-cxL * 6 * Math.PI) / t.w));
-    for (let i = 1; i <= 4; i++) {
-      const x = (t.w * i) / 4;
-      path.lineTo(x, yS + amp * Math.cos(((x - cxL) * 6 * Math.PI) / t.w));
-    }
-    path.lineTo(t.w, yS + band);
-    path.lineTo(0, yS + band);
-    path.close();
-    return path;
-  });
 
   const targetTransform = useMemo(() => [{ translateX: t.x }, { translateY: t.y }], [t]);
   const backToWorld = useMemo(() => [{ translateX: -t.x }, { translateY: -t.y }], [t]);
@@ -448,7 +423,6 @@ function PourDrawing({
         <Rect x={1} y={fillLocalY} width={t.w - 2} height={fillLocalH}>
           <LinearGradient start={vec(gx0t, 0)} end={vec(t.w - gx0t, 0)} {...cylinderGradient(move.color)} />
         </Rect>
-        <Path path={wavePath} color={rgba(bright, 0.5)} />
         <Path path={fillLipPath} style="stroke" strokeWidth={2.5} color="rgba(255,255,255,0.30)" />
         {/* the new liquid gets the same glass gloss as resting liquid — without
             this the fill reads as a flat sticker until the pour lands */}
@@ -467,12 +441,7 @@ function PourDrawing({
           {/* clip is target-local; undo the translate so the world-coord math below still holds.
               soft alphas: the garnish tints the surface instead of painting over it */}
           <Group transform={backToWorld}>
-            <Oval x={splashX} y={splashY} width={splashW} height={splashH} color={rgba(bright, 0.55)} />
             <Ripple index={0} fillT={fillT} surfaceY={surfaceY} cx={exitX} w={t.w} color={rgba(bright, 0.5)} />
-            <Ripple index={1} fillT={fillT} surfaceY={surfaceY} cx={exitX} w={t.w} color={rgba(bright, 0.5)} />
-            <Droplet index={0} fillT={fillT} surfaceY={surfaceY} cx={exitX} w={t.w} color={color} />
-            <Droplet index={1} fillT={fillT} surfaceY={surfaceY} cx={exitX} w={t.w} color={color} />
-            <Droplet index={2} fillT={fillT} surfaceY={surfaceY} cx={exitX} w={t.w} color={color} />
           </Group>
         </Group>
       </Group>
@@ -557,38 +526,8 @@ function Ripple({
   const y = useDerivedValue(() => surfaceY.value - w * (0.1 + 0.22 * f.value) * 0.16);
   const width = useDerivedValue(() => 2 * w * (0.1 + 0.22 * f.value));
   const height = useDerivedValue(() => 2 * w * (0.1 + 0.22 * f.value) * 0.16);
-  const opacity = useDerivedValue(() => (1 - f.value) * 0.7);
+  const opacity = useDerivedValue(() => (1 - f.value) * 0.35);
   return (
     <Oval x={x} y={y} width={width} height={height} style="stroke" strokeWidth={1.5} color={color} opacity={opacity} />
   );
-}
-
-/** small blobs ejected from the splash, arcing up and fading */
-function Droplet({
-  index,
-  fillT,
-  surfaceY,
-  cx,
-  w,
-  color,
-}: {
-  index: number;
-  fillT: SharedValue<number>;
-  surfaceY: SharedValue<number>;
-  cx: SharedValue<number>;
-  w: number;
-  color: string;
-}) {
-  const dir = index === 0 ? -1 : index === 1 ? 1 : -0.4;
-  const off = index * 0.37;
-  const x = useDerivedValue(() => {
-    const frac = (fillT.value * 2.2 + off) % 1;
-    return cx.value + dir * w * 0.32 * frac;
-  });
-  const y = useDerivedValue(() => {
-    const frac = (fillT.value * 2.2 + off) % 1;
-    return surfaceY.value - w * 0.5 * frac * (1 - frac) * 2.4;
-  });
-  const opacity = useDerivedValue(() => 1 - ((fillT.value * 2.2 + off) % 1));
-  return <Circle cx={x} cy={y} r={1.6 + index * 0.5} color={color} opacity={opacity} />;
 }
