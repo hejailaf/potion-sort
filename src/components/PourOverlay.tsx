@@ -96,8 +96,6 @@ function PourFx({ pour }: { pour: ActivePour }) {
   const elapsed = useSharedValue(0);
   /** fill/drain 0 → 1 (conservation): drives target fill AND source drain, starts at stream onset */
   const fillT = useSharedValue(0);
-  /** mirror of pour.toppedOff into the worklet frame — gates off the overlay's rising fill */
-  const toppedOff = useSharedValue(0);
   /** liquid rotation in the glass's local frame + its angular velocity —
    *  integrated per frame so the liquid lags and sloshes against the glass */
   const mu = useSharedValue(0);
@@ -128,12 +126,6 @@ function PourFx({ pour }: { pour: ActivePour }) {
   const srcTheta = liquidThetas.get(move.from) ?? null;
   const tgtTheta = liquidThetas.get(move.to) ?? null;
   const sign = setup && setup.s.x <= setup.t.x ? 1 : -1;
-
-  // mirror the store flag: flips in the same commit the board switches to the live
-  // bottle, so the rising-fill overlay stops exactly as the corked bottle appears
-  useEffect(() => {
-    toppedOff.value = pour.toppedOff ? 1 : 0;
-  }, [pour.toppedOff, toppedOff]);
 
   useEffect(() => {
     if (!setup) return;
@@ -191,7 +183,6 @@ function PourFx({ pour }: { pour: ActivePour }) {
       t={setup.t}
       elapsed={elapsed}
       fillT={fillT}
-      toppedOff={toppedOff}
       mu={mu}
       muVel={muVel}
     />
@@ -204,7 +195,6 @@ function PourDrawing({
   t,
   elapsed,
   fillT,
-  toppedOff,
   mu,
   muVel,
 }: {
@@ -213,7 +203,6 @@ function PourDrawing({
   t: Layout;
   elapsed: SharedValue<number>;
   fillT: SharedValue<number>;
-  toppedOff: SharedValue<number>;
   mu: SharedValue<number>;
   muVel: SharedValue<number>;
 }) {
@@ -364,12 +353,14 @@ function PourDrawing({
   const fillH = useDerivedValue(() => addH * fillT.value);
   const surfaceY = useDerivedValue(() => tSurface0 - fillH.value);
   const fillLocalY = useDerivedValue(() => surfaceY.value - t.y);
+  // the fill overlaps a FULL segment below the poured liquid (the target's old top —
+  // legally the same color as the pour) and keeps drawing until finishPour: together
+  // these mask the covered-rect opacity lag when the board switches to the live bottle
+  // at top-off (the 224188b dark-band race, restretched by celebration-mount JS jank)
   const fillLocalH = useDerivedValue(
-    () => fillH.value + (pour.tgtBefore.segments.length > 0 ? segT.segH * 0.4 : 2),
+    () => fillH.value + (pour.tgtBefore.segments.length > 0 ? segT.segH + 2 : 2),
   );
-  // stop the rising-fill overlay the instant the board takes over the live corked bottle
-  // (otherwise the flat fill would paint over the cork/celebration on the layer above)
-  const fillOpacity = useDerivedValue(() => (toppedOff.value > 0 ? 0 : Math.min(1, fillT.value * 12)));
+  const fillOpacity = useDerivedValue(() => Math.min(1, fillT.value * 12));
   // the filled region, for re-drawing the glass gloss over just the new liquid
   const fillClipPath = useDerivedValue(() => {
     const p = Skia.Path.Make();

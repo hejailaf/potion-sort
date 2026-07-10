@@ -28,7 +28,9 @@ export function Board() {
             // a target stays frozen at the earliest still-filling pour's baseline while
             // the overlay animates the growth on top; once every pour into it has topped
             // off, show the live (possibly corked) bottle so the cork/celebration appear
-            // while the source vial is still returning. Its source is hidden behind the clone.
+            // while the source vial is still returning. The switch races the covered-rect
+            // opacity props (224188b family) — masked by the overlay's fill, which
+            // overlaps one full segment below the poured liquid. Source hides behind the clone.
             const filling = activePours.filter((p) => p.move.to === bottle.id && !p.toppedOff);
             return (
               <Bottle
