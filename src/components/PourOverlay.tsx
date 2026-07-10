@@ -92,6 +92,8 @@ function PourFx({ pour }: { pour: ActivePour }) {
   const { move } = pour;
   const finishPour = useGameStore((s) => s.finishPour);
   const markToppedOff = useGameStore((s) => s.markToppedOff);
+  const markCloneReady = useGameStore((s) => s.markCloneReady);
+  const markLanded = useGameStore((s) => s.markLanded);
   /** master clock in ms, 0 → total; drives the bottle's rise/hold/travel/tilt/return */
   const elapsed = useSharedValue(0);
   /** fill/drain 0 → 1 (conservation): drives target fill AND source drain, starts at stream onset */
@@ -137,6 +139,15 @@ function PourFx({ pour }: { pour: ActivePour }) {
     }, tl.streamOn);
     const safety = setTimeout(() => finishPour(pour.id), tl.total + 700);
 
+    // newly-mounted Skia children (PourDrawing) reach the screen a frame after this
+    // commit (the 224188b-family gotcha), so the source's hide must trail the clone's
+    // first painted frame — a guaranteed 1-frame overlap at the identical lifted position
+    // is invisible, a gap is not. Double rAF: this commit paints, then the clone's does.
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => markCloneReady(pour.id));
+    });
+
     // fill/drain: linear rise, then a short eased top-off; markToppedOff at the very end
     fillT.value = withDelay(
       tl.streamOn,
@@ -165,15 +176,33 @@ function PourFx({ pour }: { pour: ActivePour }) {
             tgtTheta.value = withSpring(0, { ...SLOSH_SPRING, velocity: KICK_LAND * 0.5 * sign });
           }
         }
-        runOnJS(finishPour)(pour.id);
+        runOnJS(markLanded)(pour.id);
       }
     });
     return () => {
       clearTimeout(sfx);
       clearTimeout(safety);
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setup]);
+
+  // landed: the live bottle just unhid beneath the parked clone — keep the clone
+  // overdrawing it for two frames so the contents-swap prop races settle invisibly,
+  // then drop the pour record (and with it, the clone)
+  useEffect(() => {
+    if (!pour.landed) return;
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => finishPour(pour.id));
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pour.landed]);
 
   if (!setup) return null;
   return (

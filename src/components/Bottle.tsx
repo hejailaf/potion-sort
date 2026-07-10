@@ -102,6 +102,10 @@ export function Bottle({ bottle, width, selected, hidden, shakeToken, hinted, hi
   }, [selected, liftPx, lift]);
 
   useEffect(() => {
+    if (hidden) lift.value = 0; // invisible: seat instantly — the reappear at pour end must not animate
+  }, [hidden, lift]);
+
+  useEffect(() => {
     if (shakeToken === 0) return;
     // wider, longer wobble than before — reads even with sound + haptics off
     shakeX.value = withSequence(

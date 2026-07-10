@@ -23,6 +23,12 @@ export interface ActivePour {
   srcHidden: number;
   /** the target has finished filling (top-off) — board shows the live bottle, overlay stops its fill */
   toppedOff: boolean;
+  /** the overlay has measured both bottles and is drawing the flying clone — Board keeps the
+   *  source bottle visible (frozen at srcBefore) until this flips */
+  cloneReady: boolean;
+  /** the clone is parked back at the seat — Board unhides the live bottle beneath it; the
+   *  record (and clone) linger ~2 frames so the reveal's prop races settle covered */
+  landed: boolean;
 }
 
 let pourSeq = 0;
@@ -95,6 +101,10 @@ interface GameState {
   tapBottle: (id: string) => void;
   /** the target finished filling: reveal the live (possibly corked) bottle + fire completion effects */
   markToppedOff: (pourId: number) => void;
+  /** the overlay's flying clone is on screen: Board may now hide the frozen source bottle */
+  markCloneReady: (pourId: number) => void;
+  /** the clone parked back at the seat: Board may now unhide the live bottle beneath it */
+  markLanded: (pourId: number) => void;
   finishPour: (pourId: number) => void;
   restart: () => void;
   /** give up the current board: costs a life (no-op at 0 — never traps the player) and re-deals it */
@@ -224,6 +234,8 @@ export const useGameStore = create<GameState>()(
             completes: completed,
             srcHidden: settled[selectedId] ?? 0,
             toppedOff: false,
+            cloneReady: false,
+            landed: false,
           },
         ],
         history: pushMove(history, result.move),
@@ -245,6 +257,26 @@ export const useGameStore = create<GameState>()(
         ...(done.completes
           ? { completionToken: s.completionToken + 1, completedBottleId: done.move.to }
           : {}),
+      };
+    });
+  },
+
+  // the overlay's flying clone reached the screen: Board may now hide the frozen source
+  markCloneReady: (pourId) => {
+    set((s) => {
+      if (!s.activePours.some((p) => p.id === pourId)) return {}; // stale id after restart/exit: no-op
+      return {
+        activePours: s.activePours.map((p) => (p.id === pourId ? { ...p, cloneReady: true } : p)),
+      };
+    });
+  },
+
+  // the clone parked back at the seat: Board may now unhide the live bottle beneath it
+  markLanded: (pourId) => {
+    set((s) => {
+      if (!s.activePours.some((p) => p.id === pourId)) return {}; // stale id after restart/exit: no-op
+      return {
+        activePours: s.activePours.map((p) => (p.id === pourId ? { ...p, landed: true } : p)),
       };
     });
   },

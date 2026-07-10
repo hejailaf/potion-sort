@@ -35,8 +35,14 @@ export function Board() {
             // off, show the live (possibly corked) bottle so the cork/celebration appear
             // while the source vial is still returning. The switch races the covered-rect
             // opacity props (224188b family) — masked by the overlay's fill, which
-            // overlaps one full segment below the poured liquid. Source hides behind the clone.
+            // overlaps one full segment below the poured liquid. The source gets the mirror
+            // treatment: frozen at srcBefore and held lifted until the overlay's clone is on
+            // screen, only then hidden — closing the wrong-color repaint flash and the
+            // no-bottle gap at the hand-off. Landing hand-off is the reverse: the live bottle
+            // unhides UNDER the parked clone (identical pixels mask the contents-swap prop
+            // races), and the clone is dropped 2 frames later.
             const filling = activePours.filter((p) => p.move.to === bottle.id && !p.toppedOff);
+            const pouringFrom = activePours.find((p) => p.move.from === bottle.id);
             // continuous stagger index across both rows
             const index = r === 0 ? i : rows[0].length + i;
             return (
@@ -50,10 +56,10 @@ export function Board() {
                   .withInitialValues({ transform: [{ translateY: 14 }] })}
               >
                 <Bottle
-                  bottle={filling.length > 0 ? filling[0].tgtBefore : bottle}
+                  bottle={filling.length > 0 ? filling[0].tgtBefore : pouringFrom && !pouringFrom.landed ? pouringFrom.srcBefore : bottle}
                   width={bottleWidth}
-                  selected={bottle.id === selectedId}
-                  hidden={activePours.some((p) => p.move.from === bottle.id)}
+                  selected={bottle.id === selectedId || (!!pouringFrom && !pouringFrom.cloneReady)}
+                  hidden={!!pouringFrom && pouringFrom.cloneReady && !pouringFrom.landed}
                   shakeToken={bottle.id === invalidBottleId ? invalidTapToken : 0}
                   hinted={bottle.id === hint?.from || bottle.id === hint?.to}
                   hiddenCount={hiddenCounts[bottle.id] ?? 0}

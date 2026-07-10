@@ -126,6 +126,44 @@ describe('gameStore', () => {
     expect(s.activePours[0].tgtBefore.segments).toEqual([]);
   });
 
+  it('a committed pour starts with cloneReady false; markCloneReady flips it', () => {
+    load(tinyLevel);
+    tap('b0');
+    tap('b2');
+    const pourId = useGameStore.getState().activePours[0].id;
+    expect(useGameStore.getState().activePours[0].cloneReady).toBe(false);
+    useGameStore.getState().markCloneReady(pourId);
+    expect(useGameStore.getState().activePours[0].cloneReady).toBe(true);
+  });
+
+  it('markCloneReady with a stale/unknown id is a no-op', () => {
+    load(tinyLevel);
+    tap('b0');
+    tap('b2');
+    const before = useGameStore.getState().activePours;
+    useGameStore.getState().markCloneReady(999999); // never issued (e.g. after restart)
+    expect(useGameStore.getState().activePours).toBe(before); // returns {}: state untouched
+  });
+
+  it('a committed pour starts with landed false; markLanded flips it', () => {
+    load(tinyLevel);
+    tap('b0');
+    tap('b2');
+    const pourId = useGameStore.getState().activePours[0].id;
+    expect(useGameStore.getState().activePours[0].landed).toBe(false);
+    useGameStore.getState().markLanded(pourId);
+    expect(useGameStore.getState().activePours[0].landed).toBe(true);
+  });
+
+  it('markLanded with a stale/unknown id is a no-op', () => {
+    load(tinyLevel);
+    tap('b0');
+    tap('b2');
+    const before = useGameStore.getState().activePours;
+    useGameStore.getState().markLanded(999999); // never issued (e.g. after restart)
+    expect(useGameStore.getState().activePours).toBe(before); // returns {}: state untouched
+  });
+
   it('locks only the bottles of an in-flight pour; others stay live', () => {
     load(quadLevel);
     tap('b0');
