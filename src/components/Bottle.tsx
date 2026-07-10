@@ -199,18 +199,23 @@ export function Bottle({ bottle, width, selected, hidden, shakeToken, hinted, hi
   const gx0 = (3 * width) / 58;
   const gx1 = width - gx0;
 
-  // top segment: a tilting, meniscus-bowed surface instead of a flat rect
+  // top segment: a tilting, meniscus-bowed surface instead of a flat rect.
+  // a COMPLETE bottle (uniform color) extends this path over the whole liquid
+  // column: the covered-segment rects' opacity props lag the derived paths when
+  // the board unfreezes at top-off (224188b race, stretched by celebration-mount
+  // jank) — this path updates atomically, so the flips can't flash glass gaps
   const surfacePath = useDerivedValue(() => {
     const p = Skia.Path.Make();
     if (n === 0) return p;
     const { yL, yR, cpy } = surfaceEdge(width, ySurf, theta.value);
+    const bottom = complete ? fillBottom + 2 : ySurf + segH + 2;
     p.moveTo(0, yL);
     p.quadTo(width / 2, cpy, width, yR);
-    p.lineTo(width, ySurf + segH + 2);
-    p.lineTo(0, ySurf + segH + 2);
+    p.lineTo(width, bottom);
+    p.lineTo(0, bottom);
     p.close();
     return p;
-  }, [n, width, ySurf, segH]);
+  }, [n, width, ySurf, segH, complete, fillBottom]);
   const surfaceEdgePath = useDerivedValue(() => {
     const p = Skia.Path.Make();
     if (n === 0) return p;
