@@ -1,5 +1,7 @@
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useGameStore } from '@/state/gameStore';
+import { timing } from '@/theme';
 import { Bottle } from './Bottle';
 
 export function Board() {
@@ -11,6 +13,9 @@ export function Board() {
   const hint = useGameStore((s) => s.hint);
   const hiddenCounts = useGameStore((s) => s.hiddenCounts);
   const tapBottle = useGameStore((s) => s.tapBottle);
+  // bumped on every deal (loadLevel: new level / restart / quit) — keys the deal-in
+  // wrapper so the entrance replays on a fresh board but not on in-play re-renders
+  const startedAt = useGameStore((s) => s.startedAt);
   const { width: screenWidth } = useWindowDimensions();
 
   const half = Math.ceil(bottles.length / 2);
@@ -24,7 +29,7 @@ export function Board() {
     <View style={styles.board}>
       {rows.map((row, r) => (
         <View key={r} style={styles.row}>
-          {row.map((bottle) => {
+          {row.map((bottle, i) => {
             // a target stays frozen at the earliest still-filling pour's baseline while
             // the overlay animates the growth on top; once every pour into it has topped
             // off, show the live (possibly corked) bottle so the cork/celebration appear
@@ -32,18 +37,29 @@ export function Board() {
             // opacity props (224188b family) — masked by the overlay's fill, which
             // overlaps one full segment below the poured liquid. Source hides behind the clone.
             const filling = activePours.filter((p) => p.move.to === bottle.id && !p.toppedOff);
+            // continuous stagger index across both rows
+            const index = r === 0 ? i : rows[0].length + i;
             return (
-              <Bottle
-                key={bottle.id}
-                bottle={filling.length > 0 ? filling[0].tgtBefore : bottle}
-                width={bottleWidth}
-                selected={bottle.id === selectedId}
-                hidden={activePours.some((p) => p.move.from === bottle.id)}
-                shakeToken={bottle.id === invalidBottleId ? invalidTapToken : 0}
-                hinted={bottle.id === hint?.from || bottle.id === hint?.to}
-                hiddenCount={hiddenCounts[bottle.id] ?? 0}
-                onTap={tapBottle}
-              />
+              // layout-neutral wrapper: keying on startedAt remounts (replays the deal-in)
+              // only on a fresh board, never on pour/select re-renders. Bottle keeps its own
+              // ref for measureBottle — an outer transform settles to identity, no stale frame.
+              <Animated.View
+                key={`${startedAt}-${bottle.id}`}
+                entering={FadeInDown.duration(timing.dealInMs)
+                  .delay(index * timing.dealStaggerMs)
+                  .withInitialValues({ transform: [{ translateY: 14 }] })}
+              >
+                <Bottle
+                  bottle={filling.length > 0 ? filling[0].tgtBefore : bottle}
+                  width={bottleWidth}
+                  selected={bottle.id === selectedId}
+                  hidden={activePours.some((p) => p.move.from === bottle.id)}
+                  shakeToken={bottle.id === invalidBottleId ? invalidTapToken : 0}
+                  hinted={bottle.id === hint?.from || bottle.id === hint?.to}
+                  hiddenCount={hiddenCounts[bottle.id] ?? 0}
+                  onTap={tapBottle}
+                />
+              </Animated.View>
             );
           })}
         </View>

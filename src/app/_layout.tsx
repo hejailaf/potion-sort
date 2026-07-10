@@ -12,6 +12,7 @@ import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-c
 import { initAnalytics } from '@/analytics';
 import { initGameCenter } from '@/gamecenter';
 import { useNotificationSync } from '@/notifications';
+import { timing } from '@/theme';
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -34,6 +35,15 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <Stack screenOptions={{ headerShown: false }}>
+        {/* Home & Journey sit behind a visual tab bar → crossfade, not push */}
+        <Stack.Screen
+          name="index"
+          options={{ animation: 'fade', animationDuration: timing.screenFadeMs }}
+        />
+        <Stack.Screen
+          name="journey"
+          options={{ animation: 'fade', animationDuration: timing.screenFadeMs }}
+        />
         <Stack.Screen name="shop" options={{ presentation: 'modal' }} />
       </Stack>
     </SafeAreaProvider>

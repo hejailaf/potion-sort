@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { GameButton } from '@/components/ui/GameButton';
 import { GameModal } from '@/components/ui/GameModal';
 import { LIFE_REGEN_MS, LIVES_REFILL_COST, MAX_LIVES, useMetaStore } from '@/state/metaStore';
-import { button, color, font, radius, shadow } from '@/theme';
+import { button, color, font, radius, shadow, timing } from '@/theme';
 
 /** Hearts n/5 with a mm:ss countdown; "+" offers the coin refill when below max. */
 export function LivesPill() {
@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
     ...shadow.chip,
   },
   addPressed: {
-    transform: [{ scale: 0.9 }],
+    transform: [{ scale: timing.pressScale }],
   },
   addText: {
     color: '#FFFFFF',

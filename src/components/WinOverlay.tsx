@@ -25,7 +25,8 @@ import {
   useMetaStore,
   WIN_REWARD_COINS,
 } from '@/state/metaStore';
-import { color, font, radius, shadow } from '@/theme';
+import { playSfx } from '@/sound';
+import { color, font, radius, shadow, timing } from '@/theme';
 import { Fireworks } from './effects/Fireworks';
 
 const DROP_LABELS: Record<BoosterKind, string> = {
@@ -58,8 +59,9 @@ function WinContent() {
   const card = useSharedValue(0);
 
   useEffect(() => {
-    dim.value = withTiming(0.7, { duration: 400 });
-    card.value = withDelay(500, withSpring(1, { damping: 12, stiffness: 160 }));
+    playSfx('win'); // jingle lands with the card, not at pour-commit
+    dim.value = withTiming(0.7, { duration: timing.winDimMs });
+    card.value = withDelay(timing.winCardDelayMs, withSpring(1, { damping: 12, stiffness: 160 }));
   }, [dim, card]);
 
   // count the reward up once the card has sprung in
@@ -72,7 +74,7 @@ function WinContent() {
         setShownReward(Math.min(reward, Math.round((reward * i) / 18)));
         if (i >= 18) clearInterval(iv);
       }, 26);
-    }, 700);
+    }, timing.winCountUpDelayMs);
     return () => {
       clearTimeout(t0);
       clearInterval(iv);

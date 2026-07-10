@@ -13,6 +13,7 @@
 | 2 — Mechanics framework (engine) | ✅ done (engine core `c715432` + integration commit) |
 | 3 — Mechanics UI & unlock moments | ✅ done (`3f25ccd`, `a35ea73`, `0720679`) |
 | 4 — Measured pour choreography (per user spec) | ✅ done (`1975bd6`…`82a80e4`); UI polish audit deferred to Phase 4-F |
+| 4-F — UI polish audit & fixes | ✅ done (this commit); Release re-measure closed the Phase 4 open item |
 | 5 — Journey tab rework | pending |
 | 6 — Regression, docs close-out, build | pending |
 
@@ -91,11 +92,32 @@ complete bottles paint their full column via the surface path).
 **Measured acceptance (60fps recording, PyAV frame extraction):** lift +2%, rise ~100ms,
 hold −6%, travel −9%, fill 141ms/segment (−3%) and **dead linear at 17±1px per frame**;
 concurrency (two disjoint pours, one corking) clean; full level played to a win.
-**Open item:** celebration onset lags top-off by ~0.8s under the dev-mode JS bundle
-(runOnJS→commit chain); re-measure on a Release build before tuning — tracked for 4-F.
+**Open item — CLOSED in 4-F:** celebration onset re-measured on a Release build:
+lag is 1–3 frames (~17–50ms) after top-off. The ~0.8s was dev-bundle JS jank only;
+no tuning needed.
 
-**Phase 4-F (deferred):** the brief's keep/polish/rework audit — selection feedback,
-win pacing, coin-fly, screen transitions, press states, safe areas.
+## Phase 4-F — UI polish audit & fixes ✅
+
+Audit ran per the brief (keep/polish/rework verdict on every screen/interaction; table
+in the phase plan). Shipped: `theme.timing` grown into the motion scale (12 new tokens
+incl. `pressScale`; selection/shake/flash/win/coin-fly literals tokenized, values
+unchanged); press states normalized to `pressScale` and added where missing (HomeTabBar
+tabs, GameModal ✕, shop pack rows); Home↔Journey = 180ms crossfade (`animation:'fade'`
+on index/journey — game keeps push, shop stays modal); board deal-in (FadeInDown 260ms,
+30ms stagger, keyed on `startedAt` so it replays per deal, never per pour); win jingle
+moved from pour-commit to WinOverlay mount (audio now lands with the card); coin-fly
+reworked per user spec — coins 24pt, per-coin haptic tick + SparkleBurst splash + icon
+pulse on arrival, counter holds the old total and ticks up per landing
+(`coins − pendingCoinReward`, `deliverCoins` chunks), and the fly aims at the icon
+measured at USE time via a poll-until-stable window (the detached screen lays out with
+inset 0 under react-native-screens — a single measure, even relative, locks onto the
+frozen layout; the stability window must outlast the route transition). Safe areas
+audited: correct everywhere; game.tsx double bottom padding left as intentional.
+
+**Acceptance:** 173 tests + tsc + eslint green (2 new metaStore tests); before/after
+recordings for tab switch, win sequence, and coin-fly (frame-extracted evidence:
+crossfade vs slide, counter hold→tick with splash-on-icon, deal-in stagger mid-entry);
+Release-build celebration measurement above.
 
 ## Phase 5 — Journey tab rework
 

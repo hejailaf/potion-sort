@@ -37,12 +37,36 @@ export const button: Record<ButtonVariant, { fill: string; top: string; rim: str
   brass: { fill: '#F5B841', top: '#FFE3A6', rim: '#C07F1C', text: '#57351A' },
 };
 
-/** shared UX delays (ms). Phase 4 (UI overhaul) grows this into a full motion scale. */
+/** shared UX delays (ms) — the app's motion scale (Phase 4). */
 export const timing = {
   /** hint pill / glow auto-dismiss */
   hintAutoDismiss: 2600,
   /** gap between dismissing a modal and presenting a fullscreen ad */
   adWatchDelay: 400,
+  /** bottle selection lift */
+  selectLiftMs: 180,
+  /** invalid-tap shake, per step */
+  shakeStepMs: 45,
+  /** invalid-tap red rim flash in */
+  flashInMs: 60,
+  /** flash out */
+  flashOutMs: 280,
+  /** Home↔Journey route crossfade */
+  screenFadeMs: 180,
+  /** per-bottle deal-in on level load */
+  dealInMs: 260,
+  /** deal-in stagger between bottles */
+  dealStaggerMs: 30,
+  /** win overlay backdrop dim */
+  winDimMs: 400,
+  /** delay before win card springs in */
+  winCardDelayMs: 500,
+  /** delay before reward count-up */
+  winCountUpDelayMs: 700,
+  /** coin flight duration */
+  coinFlyMs: 900,
+  /** shared pressed-state scale — unitless, not a duration */
+  pressScale: 0.94,
 } as const;
 
 /** Measured pour choreography (reference recording, 60fps). Lengths in segH units. */

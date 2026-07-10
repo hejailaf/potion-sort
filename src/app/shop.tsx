@@ -9,7 +9,7 @@ import { CoinCounter } from '@/components/hud/CoinCounter';
 import { WorkshopBackground } from '@/components/WorkshopBackground';
 import { IconButton } from '@/components/ui/IconButton';
 import { useMetaStore } from '@/state/metaStore';
-import { color, font, radius, shadow } from '@/theme';
+import { color, font, radius, shadow, timing } from '@/theme';
 
 const RC_APPLE_KEY = 'appl_GrAwncMkfMBVnHPdKduNzwMNnyz';
 
@@ -92,7 +92,12 @@ export default function ShopScreen() {
         )}
         <View style={styles.packs}>
           {packages?.map((pkg) => (
-            <Pressable key={pkg.identifier} style={styles.pack} disabled={buying} onPress={() => buy(pkg)}>
+            <Pressable
+              key={pkg.identifier}
+              style={({ pressed }) => [styles.pack, pressed && styles.packPressed]}
+              disabled={buying}
+              onPress={() => buy(pkg)}
+            >
               <View style={styles.coin} />
               <Text style={styles.packCoins}>{COIN_PACKS[pkg.product.identifier] ?? '?'} coins</Text>
               <Text style={styles.packPrice}>{pkg.product.priceString}</Text>
@@ -149,6 +154,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     ...shadow.chip,
+  },
+  packPressed: {
+    transform: [{ scale: timing.pressScale }],
+    opacity: 0.85,
   },
   coin: {
     width: 28,

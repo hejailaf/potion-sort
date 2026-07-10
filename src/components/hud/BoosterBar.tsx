@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
   },
   tilePressed: {
     backgroundColor: button.violet.rim,
-    transform: [{ scale: 0.95 }],
+    transform: [{ scale: timing.pressScale }],
   },
   tileDisabled: {
     opacity: 0.35,

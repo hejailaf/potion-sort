@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, ViewStyle } from 'react-native';
-import { color, shadow } from '@/theme';
+import { color, shadow, timing } from '@/theme';
 
 interface IconButtonProps {
   glyph: string;
@@ -46,7 +46,7 @@ const styles = StyleSheet.create({
   },
   pressed: {
     backgroundColor: color.panel,
-    transform: [{ scale: 0.94 }],
+    transform: [{ scale: timing.pressScale }],
   },
   glyph: {
     color: color.text,

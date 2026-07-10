@@ -12,7 +12,6 @@ export function EffectsLayer() {
   const invalidTapToken = useGameStore((s) => s.invalidTapToken);
   const completionToken = useGameStore((s) => s.completionToken);
   const completedBottleId = useGameStore((s) => s.completedBottleId);
-  const status = useGameStore((s) => s.status);
   const [celebrate, setCelebrate] = useState<{ token: number; x: number; y: number; w: number; h: number } | null>(
     null,
   );
@@ -39,10 +38,6 @@ export function EffectsLayer() {
     const clear = setTimeout(() => setCelebrate(null), celebration.totalMs);
     return () => clearTimeout(clear);
   }, [completionToken, completedBottleId]);
-
-  useEffect(() => {
-    if (status === 'won') playSfx('win');
-  }, [status]);
 
   if (!celebrate) return null;
   return (

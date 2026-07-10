@@ -28,6 +28,18 @@ export function yesterdayKey(): string {
   return dateKey(d);
 }
 
+/** Split a coin reward into `count` integer chunks (cumulative-round diffs) that sum
+ *  exactly to the reward — drives CoinFly's per-coin counter tick-up. */
+export function coinChunks(reward: number, count: number): number[] {
+  let prev = 0;
+  return Array.from({ length: count }, (_, i) => {
+    const cum = Math.round((reward * (i + 1)) / count);
+    const chunk = cum - prev;
+    prev = cum;
+    return chunk;
+  });
+}
+
 /** deterministic bonus booster for a given daily */
 export function dailyBoosterKind(key: string = todayKey()): BoosterKind {
   return BOOSTER_KINDS[Number(key.replace(/-/g, '')) % BOOSTER_KINDS.length];
@@ -98,6 +110,8 @@ interface MetaState {
   setOnboardingDone: () => void;
   advanceLevel: () => void;
   clearCoinCelebration: () => void;
+  /** CoinFly per-coin delivery: shrink the pending fly-in remainder as each coin lands */
+  deliverCoins: (n: number) => void;
   /** returns false (and changes nothing) when the charge is already at 0 */
   consumeBooster: (kind: BoosterKind) => boolean;
   /** deduct coins for an ad-hoc purchase (e.g. a hint); false when short */
@@ -158,6 +172,10 @@ export const useMetaStore = create<MetaState>()(
           };
         }),
       clearCoinCelebration: () => set({ pendingCoinReward: null }),
+      deliverCoins: (n) =>
+        set((s) => ({
+          pendingCoinReward: s.pendingCoinReward === null ? null : Math.max(0, s.pendingCoinReward - n),
+        })),
       consumeBooster: (kind) => {
         let consumed = false;
         set((s) => {

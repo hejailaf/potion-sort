@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   BOOSTER_COST,
   boosterDropForLevel,
+  coinChunks,
   DAILY_REWARD_COINS,
   dailyBoosterKind,
   LIFE_REGEN_MS,
@@ -45,6 +46,26 @@ describe('metaStore', () => {
   it('clearCoinCelebration consumes the pending reward', () => {
     useMetaStore.getState().advanceLevel();
     useMetaStore.getState().clearCoinCelebration();
+    expect(useMetaStore.getState().pendingCoinReward).toBeNull();
+  });
+
+  it('coinChunks splits a reward into integer chunks that sum exactly to it', () => {
+    for (const reward of [20, 50, 1200, 7, 1, 0]) {
+      const chunks = coinChunks(reward, 8);
+      expect(chunks).toHaveLength(8);
+      expect(chunks.every((c) => Number.isInteger(c) && c >= 0)).toBe(true);
+      expect(chunks.reduce((a, b) => a + b, 0)).toBe(reward);
+    }
+  });
+
+  it('deliverCoins shrinks the pending fly-in, floors at zero, and stays null when idle', () => {
+    useMetaStore.setState({ coins: 100, pendingCoinReward: 20 });
+    useMetaStore.getState().deliverCoins(15);
+    expect(useMetaStore.getState().pendingCoinReward).toBe(5);
+    useMetaStore.getState().deliverCoins(99); // over-deliver never goes negative
+    expect(useMetaStore.getState().pendingCoinReward).toBe(0);
+    useMetaStore.setState({ pendingCoinReward: null });
+    useMetaStore.getState().deliverCoins(5); // no fly in flight: no-op
     expect(useMetaStore.getState().pendingCoinReward).toBeNull();
   });
 

@@ -14,18 +14,20 @@ interface SparkleBurstProps {
   /** burst origin in window coordinates (the bottle mouth) */
   x: number;
   y: number;
+  /** shrink the whole burst — distance + particle size; default 1 */
+  scale?: number;
 }
 
-export function SparkleBurst({ x, y }: SparkleBurstProps) {
+export function SparkleBurst({ x, y, scale = 1 }: SparkleBurstProps) {
   const particles = useMemo(
     () =>
       Array.from({ length: 12 }, (_, i) => ({
         angle: (i / 12) * Math.PI * 2 + Math.random() * 0.4,
-        dist: 28 + Math.random() * 30,
-        size: 4 + Math.random() * 4,
+        dist: (28 + Math.random() * 30) * scale,
+        size: (4 + Math.random() * 4) * scale,
         color: COLORS[i % COLORS.length],
       })),
-    [],
+    [scale],
   );
   const progress = useSharedValue(0);
 

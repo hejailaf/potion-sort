@@ -16,7 +16,7 @@ import { isBottleComplete } from '@/engine/rules';
 import { Bottle as BottleData, BOTTLE_CAPACITY, COLOR_HEX, COLOR_SYMBOL } from '@/engine/types';
 import { useMetaStore } from '@/state/metaStore';
 import { hapticLight, hapticSelect } from '@/sound';
-import { button, celebration, font, pour } from '@/theme';
+import { button, celebration, font, pour, timing } from '@/theme';
 import { bottleLayouts, bottleRefs } from './bottleLayout';
 import { KICK_SHAKE, liquidThetas, SLOSH_ENABLED, SLOSH_SPRING, surfaceEdge } from './liquid';
 import {
@@ -95,7 +95,7 @@ export function Bottle({ bottle, width, selected, hidden, shakeToken, hinted, hi
   useEffect(() => {
     // rigid glass: a clean lift with no overshoot, no idle wobble (spec: no slosh on select)
     lift.value = withTiming(selected ? -liftPx : 0, {
-      duration: 180,
+      duration: timing.selectLiftMs,
       easing: Easing.out(Easing.cubic),
     });
     if (selected) hapticSelect();
@@ -105,14 +105,17 @@ export function Bottle({ bottle, width, selected, hidden, shakeToken, hinted, hi
     if (shakeToken === 0) return;
     // wider, longer wobble than before — reads even with sound + haptics off
     shakeX.value = withSequence(
-      withTiming(-10, { duration: 45 }),
-      withTiming(9, { duration: 45 }),
-      withTiming(-6, { duration: 45 }),
-      withTiming(4, { duration: 45 }),
-      withTiming(0, { duration: 45 }),
+      withTiming(-10, { duration: timing.shakeStepMs }),
+      withTiming(9, { duration: timing.shakeStepMs }),
+      withTiming(-6, { duration: timing.shakeStepMs }),
+      withTiming(4, { duration: timing.shakeStepMs }),
+      withTiming(0, { duration: timing.shakeStepMs }),
     );
     // red rim flash on rejection
-    flash.value = withSequence(withTiming(1, { duration: 60 }), withTiming(0, { duration: 280 }));
+    flash.value = withSequence(
+      withTiming(1, { duration: timing.flashInMs }),
+      withTiming(0, { duration: timing.flashOutMs }),
+    );
     // the liquid piles toward the first excursion and keeps sloshing after the glass stops
     if (SLOSH_ENABLED) theta.value = withSpring(0, { ...SLOSH_SPRING, velocity: KICK_SHAKE });
   }, [shakeToken, shakeX, flash, theta]);

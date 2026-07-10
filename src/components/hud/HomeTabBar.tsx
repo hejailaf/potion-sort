@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { color, font, shadow } from '@/theme';
+import { color, font, shadow, timing } from '@/theme';
 
 // ponytail: a visual bar, not a router Tabs group — v2 structure is 3 tabs:
 // Shop (modal), Home, Journey (level map). Ranks lives on the home top bar.
@@ -18,20 +18,24 @@ export function HomeTabBar({ active = 'home' }: { active?: 'home' | 'journey' })
 
   return (
     <View style={[styles.bar, { paddingBottom: insets.bottom + 6 }]}>
-      <Pressable style={styles.tab} onPress={() => router.push('/shop')} hitSlop={6}>
+      <Pressable
+        style={({ pressed }) => [styles.tab, pressed && styles.tabPressed]}
+        onPress={() => router.push('/shop')}
+        hitSlop={6}
+      >
         <Text style={styles.glyph}>🛒</Text>
         <Text style={styles.label}>Shop</Text>
       </Pressable>
 
       {/* elevated brass Home button */}
-      <Pressable style={styles.tab} onPress={goHome} hitSlop={6}>
+      <Pressable style={({ pressed }) => [styles.tab, pressed && styles.tabPressed]} onPress={goHome} hitSlop={6}>
         <View style={[styles.homeBadge, shadow.button, active !== 'home' && styles.homeBadgeIdle]}>
           <Text style={styles.homeGlyph}>⚗️</Text>
         </View>
         <Text style={[styles.homeLabel, active !== 'home' && styles.labelIdle]}>Home</Text>
       </Pressable>
 
-      <Pressable style={styles.tab} onPress={goJourney} hitSlop={6}>
+      <Pressable style={({ pressed }) => [styles.tab, pressed && styles.tabPressed]} onPress={goJourney} hitSlop={6}>
         <Text style={[styles.glyph, active === 'journey' && styles.glyphActive]}>🗺️</Text>
         <Text style={[styles.label, active === 'journey' && styles.labelActive]}>Journey</Text>
       </Pressable>
@@ -54,6 +58,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 2,
     minWidth: 72,
+  },
+  tabPressed: {
+    transform: [{ scale: timing.pressScale }],
+    opacity: 0.7,
   },
   glyph: {
     color: color.text,

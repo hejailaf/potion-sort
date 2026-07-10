@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { button, color, font, radius, shadow } from '@/theme';
+import { button, color, font, radius, shadow, timing } from '@/theme';
 
 interface GameModalProps {
   visible: boolean;
@@ -31,7 +31,11 @@ export function GameModal({ visible, title, onClose, icon, message, children }: 
             </View>
           )}
           {children}
-          <Pressable onPress={onClose} style={styles.close} hitSlop={12}>
+          <Pressable
+            onPress={onClose}
+            style={({ pressed }) => [styles.close, pressed && styles.closePressed]}
+            hitSlop={12}
+          >
             <Text style={styles.closeText}>✕</Text>
           </Pressable>
         </Pressable>
@@ -106,6 +110,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     ...shadow.chip,
+  },
+  closePressed: {
+    transform: [{ scale: timing.pressScale }],
+    opacity: 0.7,
   },
   closeText: {
     color: '#FFFFFF',
