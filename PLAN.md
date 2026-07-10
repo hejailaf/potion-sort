@@ -12,7 +12,7 @@
 | 1 — Documentation reset | ✅ done (this commit) |
 | 2 — Mechanics framework (engine) | ✅ done (engine core `c715432` + integration commit) |
 | 3 — Mechanics UI & unlock moments | ✅ done (`3f25ccd`, `a35ea73`, `0720679`) |
-| 4 — Animation & UI overhaul | ⏳ next |
+| 4 — Measured pour choreography (per user spec) | ✅ done (`1975bd6`…`82a80e4`); UI polish audit deferred to Phase 4-F |
 | 5 — Journey tab rework | pending |
 | 6 — Regression, docs close-out, build | pending |
 
@@ -75,14 +75,27 @@ veil reveal on cork (recorded), mystery reveal-on-surface + masked flight (recor
 seal countdown + pop (recorded); interstitial-not-reshown and lifted-veil state verified
 across app kill/relaunch; levels 19/20/39/40/59/60 each played start-to-win on device.
 
-## Phase 4 — Animation & UI overhaul (refine, don't redesign)
+## Phase 4 — Measured pour choreography & physics ✅ (user spec replaced the pour-feel scope)
 
-- Audit pass in Plan Mode first: every screen/interaction gets keep/polish/rework + specific issues.
-- Polish targets: pour feel (spring curves, anticipation/settle), selection feedback, win pacing, coin-fly, screen transitions, press states, safe areas.
-- All timings/curves from `theme.ts` tokens (the `timing` group started in Phase 0).
-- Guardrail: profile before/after; no dropped frames during pour (iPhone 12-class); Skia only where Views can't.
+Shipped per the frame-measured reference spec (`pour` + `celebration` token groups —
+zero magic numbers): rise 100ms → anticipation hold 160ms → combined travel+tilt 270ms
+to 72° (mouth pivot, near-rim anchor over the adjacent column) → LINEAR fill/drain at
+145ms/segment on its own shared value with a 50ms top-off ease → 130ms stream tail
+overlapping a 300ms ease-in-out straight return. Rigid liquid (SLOSH_ENABLED off; exact
+screen-horizontal counter-rotation), steady thin stream (1.2% screen width), arrival
+stripped to one faint ripple. Completion celebration fires at TOP-OFF: ribbon swirl,
+16-particle shell, ember, cork materializing 0.35h above the neck and dropping with a
+settle. Two Skia prop-timing races found and fixed (overlay fill masks the unfreeze;
+complete bottles paint their full column via the surface path).
 
-**Acceptance:** before/after recordings for the 3 biggest improvements; no latency regression; spacing/typography consistent via tokens.
+**Measured acceptance (60fps recording, PyAV frame extraction):** lift +2%, rise ~100ms,
+hold −6%, travel −9%, fill 141ms/segment (−3%) and **dead linear at 17±1px per frame**;
+concurrency (two disjoint pours, one corking) clean; full level played to a win.
+**Open item:** celebration onset lags top-off by ~0.8s under the dev-mode JS bundle
+(runOnJS→commit chain); re-measure on a Release build before tuning — tracked for 4-F.
+
+**Phase 4-F (deferred):** the brief's keep/polish/rework audit — selection feedback,
+win pacing, coin-fly, screen transitions, press states, safe areas.
 
 ## Phase 5 — Journey tab rework
 
