@@ -394,6 +394,65 @@ describe('gameStore', () => {
   });
 });
 
+describe('pour event payload (animation contract)', () => {
+  // ActivePour.move is the pour event the animation layer consumes.
+  // spec name -> field: sourceId=move.from, targetId=move.to, segmentCount=move.count, completesTarget=completes
+
+  /** b0 has 2 ruby (space 2); b1's single ruby tops it to 3 — short of a cork. */
+  const shortLevel: LevelDef = {
+    id: 94,
+    seed: 0,
+    bottles: [['ruby', 'ruby'], ['ruby']],
+    emptyBottles: 0,
+  };
+
+  /** b0 has 1 ruby atop 2 gold (space 1); b1's ruby run of 3 — only 1 fits. */
+  const partialLevel: LevelDef = {
+    id: 93,
+    seed: 0,
+    bottles: [['gold', 'gold', 'ruby'], ['ruby', 'ruby', 'ruby']],
+    emptyBottles: 0,
+  };
+
+  it('carries source, target, segment count and color', () => {
+    load(tinyLevel);
+    tap('b0');
+    tap('b2'); // gold×2 -> empty
+    const { move } = useGameStore.getState().activePours[0];
+    expect(move.from).toBe('b0');
+    expect(move.to).toBe('b2');
+    expect(move.count).toBe(2);
+    expect(move.color).toBe('gold');
+    finishAllPours();
+  });
+
+  it('completesTarget is true exactly at 4-of-a-kind', () => {
+    load(completionLevel);
+    tap('b1');
+    tap('b0'); // ruby onto ruby×3 -> corks b0
+    expect(useGameStore.getState().activePours[0].completes).toBe(true);
+    finishAllPours();
+  });
+
+  it('completesTarget is false when the target stays short of 4', () => {
+    load(shortLevel);
+    tap('b1');
+    tap('b0'); // ruby onto ruby×2 -> ruby×3, short of a cork
+    expect(useGameStore.getState().activePours[0].completes).toBe(false);
+    finishAllPours();
+  });
+
+  it('a partial pour records the transferred count, not the run length', () => {
+    load(partialLevel);
+    tap('b1'); // top run of 3 ruby
+    tap('b0'); // only 1 slot free
+    const s = useGameStore.getState();
+    expect(s.activePours[0].move.count).toBe(1);
+    expect(s.activePours[0].completes).toBe(false);
+    finishAllPours();
+  });
+});
+
 describe('gameStore modifiers', () => {
   /** b1's ruby corks b0; b2 is veiled (gold×3); b3 empty. */
   const veiledLevel: LevelDef = {

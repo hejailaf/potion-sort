@@ -45,6 +45,43 @@ export const timing = {
   adWatchDelay: 400,
 } as const;
 
+/** Measured pour choreography (reference recording, 60fps). Lengths in segH units. */
+export const pour = {
+  /** selected idle elevation ≈ 65px where 1 segment = 103px */
+  selectLiftSeg: 0.63,
+  /** additional rise to travel height (~70px) */
+  riseSeg: 0.68,
+  riseMs: 100,
+  /** anticipation hover before travel; tunable 0–280 per spec */
+  anticipationMs: 160,
+  travelTiltMs: 270,
+  /** linear fill/drain rate */
+  msPerSegment: 145,
+  /** ease-out applied only to the last moments of the fill */
+  topOffEaseMs: 50,
+  /** stream appears this long after tilt-in completes (spec window 60–100) */
+  streamOnsetMs: 80,
+  streamTailMs: 130,
+  returnMs: 300,
+  maxTiltDeg: 72,
+  /** tilt deepens by this much as the source drains */
+  tiltDeepenDeg: 6,
+  /** stream width as a fraction of screen width (spec 1–1.5%) */
+  streamWidthFrac: 0.012,
+} as const;
+
+/** Completion celebration sub-timeline (t=0 at target top-off). */
+export const celebration = {
+  totalMs: 1450,
+  emberAtMs: 500,
+  emberRiseMs: 150,
+  corkAtMs: 620,
+  corkDropMs: 280,
+  /** cork materializes this fraction of bottle height above the neck */
+  corkFromFrac: 0.35,
+  fadeStartMs: 900,
+} as const;
+
 export const radius = {
   pill: 999,
   panel: 30,
