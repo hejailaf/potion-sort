@@ -3,8 +3,9 @@ import { StyleSheet, View } from 'react-native';
 import { ACH, reportAchievement } from '@/gamecenter';
 import { useGameStore } from '@/state/gameStore';
 import { hapticError, hapticSuccess, playSfx } from '@/sound';
+import { celebration } from '@/theme';
 import { bottleLayouts } from './bottleLayout';
-import { SparkleBurst } from './effects/SparkleBurst';
+import { Celebration } from './effects/Celebration';
 
 /** Sound, haptics, and particle effects driven by store signals. */
 export function EffectsLayer() {
@@ -12,7 +13,9 @@ export function EffectsLayer() {
   const completionToken = useGameStore((s) => s.completionToken);
   const completedBottleId = useGameStore((s) => s.completedBottleId);
   const status = useGameStore((s) => s.status);
-  const [burst, setBurst] = useState<{ token: number; x: number; y: number } | null>(null);
+  const [celebrate, setCelebrate] = useState<{ token: number; x: number; y: number; w: number; h: number } | null>(
+    null,
+  );
   const firedToken = useRef(0);
 
   useEffect(() => {
@@ -21,8 +24,9 @@ export function EffectsLayer() {
     hapticError();
   }, [invalidTapToken]);
 
-  // completion effects fire once; the token bumps when the corking pour's animation lands
-  // ponytail: two corks landing in the same React batch render one sparkle burst
+  // completion effects fire once; the token bumps at top-off (mid-pour), while the
+  // source vial is still returning to its seat — the celebration lands on the target
+  // ponytail: two corks topping off in the same React batch render one celebration
   useEffect(() => {
     if (completionToken === 0 || completionToken === firedToken.current) return;
     firedToken.current = completionToken;
@@ -31,8 +35,8 @@ export function EffectsLayer() {
     reportAchievement(ACH.firstCork); // GameKit ignores re-reports once earned
     const layout = completedBottleId ? bottleLayouts.get(completedBottleId) : undefined;
     if (!layout) return;
-    setBurst({ token: completionToken, x: layout.x + layout.w / 2, y: layout.y });
-    const clear = setTimeout(() => setBurst(null), 800);
+    setCelebrate({ token: completionToken, x: layout.x + layout.w / 2, y: layout.y, w: layout.w, h: layout.h });
+    const clear = setTimeout(() => setCelebrate(null), celebration.totalMs);
     return () => clearTimeout(clear);
   }, [completionToken, completedBottleId]);
 
@@ -40,10 +44,10 @@ export function EffectsLayer() {
     if (status === 'won') playSfx('win');
   }, [status]);
 
-  if (!burst) return null;
+  if (!celebrate) return null;
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      <SparkleBurst key={burst.token} x={burst.x} y={burst.y} />
+      <Celebration key={celebrate.token} x={celebrate.x} y={celebrate.y} w={celebrate.w} h={celebrate.h} />
     </View>
   );
 }

@@ -6,6 +6,7 @@ import Animated, {
   useAnimatedStyle,
   useDerivedValue,
   useSharedValue,
+  withDelay,
   withRepeat,
   withSequence,
   withSpring,
@@ -15,7 +16,7 @@ import { isBottleComplete } from '@/engine/rules';
 import { Bottle as BottleData, BOTTLE_CAPACITY, COLOR_HEX, COLOR_SYMBOL } from '@/engine/types';
 import { useMetaStore } from '@/state/metaStore';
 import { hapticLight, hapticSelect } from '@/sound';
-import { button, font, pour } from '@/theme';
+import { button, celebration, font, pour } from '@/theme';
 import { bottleLayouts, bottleRefs } from './bottleLayout';
 import { KICK_SHAKE, liquidThetas, SLOSH_ENABLED, SLOSH_SPRING, surfaceEdge } from './liquid';
 import {
@@ -30,6 +31,11 @@ import {
   vialPaths,
 } from './vial';
 import { VialCap, VialInside, VialNeck, VialShine } from './VialGlass';
+
+// cork landing bounce: a small overshoot below the seat, then settle (spec's snappy landing)
+const SETTLE_OVERSHOOT_PX = 3;
+const SETTLE_OUT_MS = 60;
+const SETTLE_BACK_MS = 90;
 
 interface BottleProps {
   bottle: BottleData;
@@ -67,6 +73,13 @@ export function Bottle({ bottle, width, selected, hidden, shakeToken, hinted, hi
   const sealOpacity = useSharedValue(locks > 0 ? 1 : 0);
   const prevLocks = useRef(locks);
   const shownLocks = useRef(locks);
+  /** cork (VialCap): permanent node, opacity-gated; drops onto the neck on completion */
+  const complete = isBottleComplete(bottle);
+  const corkFromPx = celebration.corkFromFrac * height;
+  const corkOpacity = useSharedValue(complete ? 1 : 0); // resume mid-level: corked bottles seated on mount
+  const corkY = useSharedValue(0);
+  const wasComplete = useRef(complete);
+  const corkTransform = useDerivedValue(() => [{ translateY: corkY.value }]);
 
   // registries: the pour overlay kicks this bottle's liquid when a pour lands
   // on it, and measures its ref fresh when a pour starts
@@ -132,6 +145,31 @@ export function Bottle({ bottle, width, selected, hidden, shakeToken, hinted, hi
   }, [locks, sealScale, sealOpacity]);
 
   useEffect(() => {
+    const prev = wasComplete.current;
+    wasComplete.current = complete;
+    if (prev === complete) return; // mount / no change: resting state already set by the initial SV values
+    if (complete) {
+      // cork drop: hold hidden above the neck through corkAtMs, then drop onto the neck
+      // with a settle bounce; hapticLight at landing (top-off timing → aligns with the celebration)
+      corkY.value = -corkFromPx;
+      corkOpacity.value = withDelay(celebration.corkAtMs, withTiming(1, { duration: 0 }));
+      corkY.value = withDelay(
+        celebration.corkAtMs,
+        withSequence(
+          withTiming(0, { duration: celebration.corkDropMs, easing: Easing.in(Easing.quad) }),
+          withTiming(SETTLE_OVERSHOOT_PX, { duration: SETTLE_OUT_MS }),
+          withTiming(0, { duration: SETTLE_BACK_MS }),
+        ),
+      );
+      const land = setTimeout(hapticLight, celebration.corkAtMs + celebration.corkDropMs);
+      return () => clearTimeout(land);
+    }
+    // undo/restart re-deals the same ids: an already-corked bottle snaps back uncorked
+    corkOpacity.value = 0;
+    corkY.value = 0;
+  }, [complete, corkFromPx, corkOpacity, corkY]);
+
+  useEffect(() => {
     glow.value = hinted
       ? withRepeat(
           withSequence(withTiming(0.95, { duration: 500 }), withTiming(0.25, { duration: 500 })),
@@ -156,7 +194,6 @@ export function Bottle({ bottle, width, selected, hidden, shakeToken, hinted, hi
   const { glass, interior } = vialPaths(width, height);
   const n = bottle.segments.length;
   const ySurf = fillBottom - n * segH;
-  const complete = isBottleComplete(bottle);
   const liquidHex = n > 0 ? COLOR_HEX[bottle.segments[n - 1]] : '#000000';
   // liquid gradients span the interior (body inset 3, in mock units)
   const gx0 = (3 * width) / 58;
@@ -213,12 +250,13 @@ export function Bottle({ bottle, width, selected, hidden, shakeToken, hinted, hi
           style={{
             position: 'absolute',
             left: -GLOW_PAD,
-            top: -GLOW_PAD,
+            // extra top headroom so the cork can materialize above the neck and drop in unclipped
+            top: -(GLOW_PAD + corkFromPx),
             width: width + 2 * GLOW_PAD,
-            height: height + 2 * GLOW_PAD,
+            height: height + 2 * GLOW_PAD + corkFromPx,
           }}
         >
-          <Group transform={[{ translateX: GLOW_PAD }, { translateY: GLOW_PAD }]}>
+          <Group transform={[{ translateX: GLOW_PAD }, { translateY: GLOW_PAD + corkFromPx }]}>
             {/* complete bottle: soft static halo of its own liquid color */}
             {complete && (
               <>
@@ -278,8 +316,11 @@ export function Bottle({ bottle, width, selected, hidden, shakeToken, hinted, hi
             </Group>
             <VialShine w={width} h={height} />
             <VialNeck w={width} />
-            {/* the cap IS the cork: it only appears once a bottle is complete */}
-            {complete && <VialCap w={width} />}
+            {/* the cork: permanent node (never conditionally mount Skia children —
+                new children render a frame late), gated by opacity + dropped in on completion */}
+            <Group opacity={corkOpacity} transform={corkTransform}>
+              <VialCap w={width} />
+            </Group>
           </Group>
         </Canvas>
         {/* colorblind symbols: suppressed on veiled bottles and hidden mystery segments —
